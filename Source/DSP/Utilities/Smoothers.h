@@ -24,7 +24,7 @@ public:
 
     void setTarget (float v) noexcept
     {
-        if (v == target)
+        if (! (v < target) && ! (v > target)) // unchanged (exact comparison intended)
             return;
         target = v;
         countdown = rampLength;

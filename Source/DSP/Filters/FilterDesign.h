@@ -2,6 +2,7 @@
 
 #include "Biquad.h"
 #include "../Equalizer/EQTypes.h"
+#include <cmath>
 
 namespace skjald::FilterDesign
 {
@@ -13,7 +14,7 @@ struct AnalogSection
     double d0 = 1.0, d1 = 0.0, d2 = 0.0;
 
     double magnitudeSquared (double omega) const noexcept;
-    bool isSecondOrder() const noexcept { return d2 != 0.0; }
+    bool isSecondOrder() const noexcept { return std::abs (d2) > 0.0; }
 };
 
 /** Magnitude-matched digital design (impulse-invariant poles + numerator fitted so the

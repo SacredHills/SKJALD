@@ -25,11 +25,6 @@ struct BiquadCoeffs
         // Jury criterion for a second-order denominator 1 + a1 z^-1 + a2 z^-2
         return std::abs (a2) < 1.0 && std::abs (a1) < 1.0 + a2;
     }
-
-    bool operator== (const BiquadCoeffs& o) const noexcept
-    {
-        return b0 == o.b0 && b1 == o.b1 && b2 == o.b2 && a1 == o.a1 && a2 == o.a2;
-    }
 };
 
 /** Direct Form I state in double precision. DF1 is used because it tolerates
