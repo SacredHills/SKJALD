@@ -24,7 +24,7 @@ if(TARGET SKJALD_VST3)
         juce::juce_audio_processors juce::juce_gui_basics
         juce::juce_recommended_config_flags juce::juce_recommended_warning_flags)
     add_dependencies(skjald_plugin_tests SKJALD_VST3)
-    get_target_property(SKJALD_VST3_DIR SKJALD_VST3 LIBRARY_OUTPUT_DIRECTORY)
+    # bundle root (JUCE's LIBRARY_OUTPUT_DIRECTORY points inside the bundle on Linux)
     add_test(NAME skjald_plugin_tests
-             COMMAND skjald_plugin_tests "${SKJALD_VST3_DIR}/SKJALD.vst3")
+             COMMAND skjald_plugin_tests "${CMAKE_BINARY_DIR}/Source/Plugin/SKJALD_artefacts/$<CONFIG>/VST3/SKJALD.vst3")
 endif()

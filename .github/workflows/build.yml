@@ -34,7 +34,7 @@ jobs:
             pluginval_bin: ./pluginval.exe
             configure: -G "Visual Studio 17 2022" -A x64
           - name: macOS universal (Apple Silicon + Intel)
-            os: macos-14
+            os: macos-15
             artifact: SKJALD-macOS-universal
             pluginval: pluginval_macOS.zip
             pluginval_bin: ./pluginval.app/Contents/MacOS/pluginval
