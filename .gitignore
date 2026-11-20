@@ -1,0 +1,19 @@
+# Build output
+build*/
+out/
+cmake-build-*/
+_deps/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.user
+*.xcworkspace
+xcuserdata/
+.DS_Store
+
+# Test / tool output
+*.wav
+!Tests/Data/*.wav
+reports/
