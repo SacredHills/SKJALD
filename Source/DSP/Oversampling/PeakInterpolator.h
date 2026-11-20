@@ -13,7 +13,9 @@ namespace skjald
 class PeakInterpolator
 {
 public:
-    void prepare (int factor, int halfLengthInputSamples = 16, double attenuationDb = 70.0);
+    /** cutoff is relative to the input Nyquist frequency. Values slightly above 1 make the
+        detector over-read content close to Nyquist (safe side for a ceiling guard). */
+    void prepare (int factor, int halfLengthInputSamples = 16, double attenuationDb = 70.0, double cutoff = 1.0);
     void reset() noexcept;
 
     /** Push one input sample, return max |y| over the F interpolated phases (delayed by D). */

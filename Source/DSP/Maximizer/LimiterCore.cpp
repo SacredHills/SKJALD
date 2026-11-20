@@ -76,7 +76,7 @@ void LimiterCore::reset() noexcept
 void LimiterCore::computeTargets (const CoreSettings& s) noexcept
 {
     const int lookahead = (int) std::lround (s.lookaheadMs * 0.001 * osRate);
-    targetWindow = std::clamp ((int) std::lround (lookahead * s.attackFraction), 1, maxWindow);
+    targetWindow = std::clamp ((int) std::lround ((double) lookahead * (double) s.attackFraction), 1, maxWindow);
     targetWindow = std::min (targetWindow, signalDelay + 1 - detectorLatency);
 
     // Split the window into `stages` boxes whose combined support is exactly the window:

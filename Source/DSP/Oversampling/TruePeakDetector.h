@@ -12,9 +12,9 @@ namespace skjald
     (2x, 4x or 8x). The first stage has a narrow transition band centred on fs/2
     (flat to ~0.485 fs), so full-band material such as noise, cymbals and clipped
     transients is measured correctly, which short single-stage kernels under-read.
-    The later stages only need to protect that band. Cost is about 340 multiplies per
-    input sample at 8x. Verified against an independent long-kernel reconstruction to
-    within 0.01 dB on white noise and sines up to 0.47 fs.
+    The later stages only need to protect that band. Cost is about 470 multiplies per
+    input sample at 8x. Verified against independent long-kernel and FFT reconstructions
+    (see Tests/ and scripts/verify_true_peak.py).
 
     For each input sample it outputs the maximum |y| of the F interpolated samples of
     that sample period, delayed by getLatency() samples (an integer). */
@@ -26,7 +26,11 @@ public:
     /** edge: upper edge of the first stage's transition band relative to the input rate
         (0.515 = transition 0.485-0.515 fs). Wider is cheaper but under-reads content near
         the input Nyquist. */
-    void prepare (int factor, double attenuationDb = 70.0, double edge = 0.515);
+    void prepare (int factor, double attenuationDb = 70.0, double edge = kDefaultEdge);
+
+    /** Default transition 0.495-0.505 fs: content closer to Nyquist than that is ambiguous
+        for any finite reconstruction filter (see docs/TECHNICAL.md). */
+    static constexpr double kDefaultEdge = 0.505;
     void reset() noexcept;
 
     /** in: n samples -> peaks: n values (any n; processed in chunks). */

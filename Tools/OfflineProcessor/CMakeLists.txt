@@ -1,1 +1,5 @@
-
+add_executable(skjald_offline main.cpp WavFile.cpp)
+target_link_libraries(skjald_offline PRIVATE skjald_dsp)
+if(MSVC)
+    target_compile_definitions(skjald_offline PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()

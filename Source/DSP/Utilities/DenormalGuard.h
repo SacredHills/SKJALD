@@ -19,7 +19,7 @@ public:
     {
 #if defined(SKJALD_HAS_SSE_CSR)
         previous = _mm_getcsr();
-        _mm_setcsr (previous | 0x8040u); // FTZ | DAZ
+        _mm_setcsr ((unsigned int) previous | 0x8040u); // FTZ | DAZ
 #elif defined(__aarch64__) && (defined(__GNUC__) || defined(__clang__))
         uint64_t fpcr;
         asm volatile ("mrs %0, fpcr" : "=r"(fpcr));

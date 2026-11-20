@@ -2,6 +2,7 @@
 
 #include "EnvelopeBlocks.h"
 #include "../Oversampling/TruePeakDetector.h"
+#include "../Oversampling/PeakInterpolator.h"
 #include <vector>
 #include "../Utilities/DelayLine.h"
 
@@ -22,6 +23,8 @@ class TruePeakGuard
 public:
     static constexpr int kMaxChannels = 2;
     static constexpr int kDetectorFactor = 8;
+    static constexpr int kNyquistHalfLength = 16;
+    static constexpr double kNyquistCutoff = 1.12;
 
     void prepare (double sampleRate, int maxBlockSize);
     void reset() noexcept;
@@ -40,7 +43,8 @@ private:
     struct Channel
     {
         TruePeakDetector detector;
-        DelayLine<float> samplePeakAlign, signal;
+        PeakInterpolator nyquistGuard; // over-reads content near fs/2 (safe side)
+        DelayLine<float> samplePeakAlign, nyquistAlign, signal;
         std::vector<float> peaks;
     };
     std::array<Channel, kMaxChannels> ch;

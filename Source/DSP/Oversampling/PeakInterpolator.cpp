@@ -6,7 +6,7 @@
 
 namespace skjald
 {
-void PeakInterpolator::prepare (int factor, int halfLengthInputSamples, double attenuationDb)
+void PeakInterpolator::prepare (int factor, int halfLengthInputSamples, double attenuationDb, double cutoff)
 {
     F = std::max (1, factor);
     D = F > 1 ? std::max (1, halfLengthInputSamples) : 0;
@@ -26,7 +26,7 @@ void PeakInterpolator::prepare (int factor, int halfLengthInputSamples, double a
                 const int k = p + j * F;
                 if (k >= L)
                     continue;
-                const double v = sinc ((double) (k - centre) / F) * kaiserWindow (k, L, beta);
+                const double v = sinc (cutoff * (double) (k - centre) / F) * kaiserWindow (k, L, beta);
                 coeffs[(size_t) (p * J + j)] = (float) v;
                 sum += v;
             }

@@ -15,6 +15,8 @@ void TruePeakGuard::prepare (double sampleRate, int maxBlockSize)
     const int detLatency = ch[0].detector.getLatency();
     for (auto& c : ch)
     {
+        c.nyquistGuard.prepare (kDetectorFactor, kNyquistHalfLength, 60.0, kNyquistCutoff);
+        c.nyquistAlign.prepare (std::max (1, detLatency - kNyquistHalfLength));
         c.samplePeakAlign.prepare (detLatency);
         c.peaks.assign ((size_t) std::max (1, maxBlockSize), 0.0f);
     }
@@ -37,6 +39,8 @@ void TruePeakGuard::reset() noexcept
     for (auto& c : ch)
     {
         c.detector.reset();
+        c.nyquistGuard.reset();
+        c.nyquistAlign.reset();
         c.samplePeakAlign.reset();
         c.signal.reset();
     }
@@ -65,7 +69,11 @@ void TruePeakGuard::process (float* const* io, int numChannels, int numSamples, 
         for (int c = 0; c < numChannels; ++c)
         {
             const float x = io[c][i];
-            const float tp = ch[(size_t) c].peaks[(size_t) i];
+            auto& st = ch[(size_t) c];
+            // Both detectors aligned to the same sample: the accurate halfband cascade and the
+            // slightly over-reading near-Nyquist interpolator. The guard uses the larger one.
+            const float nyq = st.nyquistAlign.process (st.nyquistGuard.processPeak (x), detLatency - kNyquistHalfLength);
+            const float tp = std::max (st.peaks[(size_t) i], nyq);
             const float sp = std::abs (ch[(size_t) c].samplePeakAlign.process (x, detLatency));
             const float det = truePeak ? std::max (tp, sp) : sp;
             if (det > ceilingLin)

@@ -28,6 +28,8 @@ void HalfbandStage::design (double transitionWidth, double attenuationDb)
     }
     // Normalise so the off-centre taps sum to exactly 0.5 (DC gain 1, halfband property kept)
     tapsUp.assign ((size_t) M, 0.0f);
+    for (int j = 0; j < M / 2; ++j)
+        h[(size_t) (M - 1 - j)] = h[(size_t) j]; // enforce exact symmetry for the folded loops
     for (int j = 0; j < M; ++j)
     {
         const double v = h[(size_t) j] * (0.5 / sum);
@@ -59,9 +61,10 @@ void HalfbandStage::upsample (const float* in, float* out, int n) noexcept
         upHist[(size_t) upPos] = upHist[(size_t) (upPos + M)] = in[i];
         const float* h = upHist.data() + upPos; // h[j] = x[m - j]
 
+        // linear-phase taps are symmetric (t[j] == t[M-1-j]): fold to halve the multiplies
         float acc = 0.0f;
-        for (int j = 0; j < M; ++j)
-            acc += t[j] * h[j];
+        for (int j = 0; j < K; ++j)
+            acc += t[j] * (h[j] + h[M - 1 - j]);
 
         out[2 * i] = acc;
         out[2 * i + 1] = h[K - 1]; // centre tap: 2 * 0.5 * x[m - (K - 1)]
@@ -81,8 +84,8 @@ void HalfbandStage::downsample (const float* in, float* out, int n) noexcept
         const float* h = downHist.data() + downPos;
 
         float acc = 0.0f;
-        for (int j = 0; j < M; ++j)
-            acc += t[j] * h[j];
+        for (int j = 0; j < K; ++j)
+            acc += t[j] * (h[j] + h[M - 1 - j]);
 
         // centre tap uses the odd sample from K pairs ago: u[2m - c] = u[2(m-K) + 1]
         acc += 0.5f * oddDelay.process (odd, K);

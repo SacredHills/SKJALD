@@ -1,0 +1,131 @@
+name: Build and test
+
+on:
+  push:
+    branches: [ main ]
+    tags: [ 'v*' ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  BUILD_TYPE: Release
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Linux x86_64
+            os: ubuntu-22.04
+            artifact: SKJALD-Linux-x86_64
+            pluginval: pluginval_Linux.zip
+            pluginval_bin: ./pluginval
+            configure: -G Ninja
+          - name: Windows x64
+            os: windows-2022
+            artifact: SKJALD-Windows-x64
+            pluginval: pluginval_Windows.zip
+            pluginval_bin: ./pluginval.exe
+            configure: -G "Visual Studio 17 2022" -A x64
+          - name: macOS universal (Apple Silicon + Intel)
+            os: macos-14
+            artifact: SKJALD-macOS-universal
+            pluginval: pluginval_macOS.zip
+            pluginval_bin: ./pluginval.app/Contents/MacOS/pluginval
+            configure: '-G Ninja "-DCMAKE_OSX_ARCHITECTURES=arm64;x86_64"'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Linux dependencies
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libasound2-dev libx11-dev libxrandr-dev libxinerama-dev \
+            libxcursor-dev libxext-dev libfreetype6-dev libfontconfig1-dev libgl1-mesa-dev xvfb \
+            python3-numpy python3-scipy
+
+      - name: Install macOS dependencies
+        if: runner.os == 'macOS'
+        run: brew install ninja
+
+      - name: Cache JUCE download
+        uses: actions/cache@v4
+        with:
+          path: build/_deps/juce-src
+          key: juce-8.0.10-${{ runner.os }}
+
+      - name: Configure
+        shell: bash
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }} ${{ matrix.configure }}
+
+      - name: Build
+        shell: bash
+        run: cmake --build build --config ${{ env.BUILD_TYPE }} --parallel 4
+
+      - name: DSP tests
+        shell: bash
+        run: ctest --test-dir build -C ${{ env.BUILD_TYPE }} -R skjald_dsp_tests --output-on-failure
+
+      - name: Plug-in host tests (Linux, virtual display)
+        if: runner.os == 'Linux'
+        run: xvfb-run -a ctest --test-dir build -C ${{ env.BUILD_TYPE }} -R skjald_plugin_tests --output-on-failure
+
+      - name: Plug-in host tests
+        if: runner.os != 'Linux'
+        shell: bash
+        run: ctest --test-dir build -C ${{ env.BUILD_TYPE }} -R skjald_plugin_tests --output-on-failure
+
+      - name: pluginval (strictness 10)
+        shell: bash
+        run: |
+          curl -sSL -o pluginval.zip "https://github.com/Tracktion/pluginval/releases/latest/download/${{ matrix.pluginval }}"
+          unzip -q -o pluginval.zip
+          VST3="build/Source/Plugin/SKJALD_artefacts/${{ env.BUILD_TYPE }}/VST3/SKJALD.vst3"
+          if [ "$RUNNER_OS" = "Linux" ]; then RUN="xvfb-run -a"; else RUN=""; fi
+          $RUN ${{ matrix.pluginval_bin }} --strictness-level 10 --validate-in-process --timeout-ms 900000 --validate "$VST3"
+
+      - name: Independent true-peak / loudness verification (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          python3 scripts/make_test_signals.py signals 44100
+          mkdir -p processed
+          for f in drums_bass_mix pink_noise_bursts isp_fs4_45deg; do
+            for mode in transparent modern aggressive punch smooth; do
+              ./build/Tools/OfflineProcessor/skjald_offline signals/$f.wav processed/${f}_${mode}.wav \
+                --mode $mode --threshold -10 --ceiling -1 > /dev/null
+              python3 scripts/verify_true_peak.py processed/${f}_${mode}.wav --ceiling -1
+            done
+          done
+          ./build/Tools/OfflineProcessor/skjald_offline --benchmark 10
+
+      - name: Package
+        shell: bash
+        run: |
+          mkdir -p package
+          cp -R "build/Source/Plugin/SKJALD_artefacts/${{ env.BUILD_TYPE }}/VST3/SKJALD.vst3" package/
+          cp docs/INSTALL.md package/INSTALL.md
+          if [ "$RUNNER_OS" = "Windows" ]; then
+            cp build/Tools/OfflineProcessor/${{ env.BUILD_TYPE }}/skjald_offline.exe package/
+            7z a "${{ matrix.artifact }}.zip" ./package/*
+          else
+            cp build/Tools/OfflineProcessor/skjald_offline package/
+            (cd package && zip -qry "../${{ matrix.artifact }}.zip" .)
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.artifact }}.zip
+
+      - name: Attach to release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ matrix.artifact }}.zip
