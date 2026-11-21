@@ -1,5 +1,18 @@
 # Installing SKJALD
 
+## Installers (recommended)
+
+Each release has an installer per system (CI builds are unsigned, see the notes below):
+
+| System | File | What it does |
+|---|---|---|
+| Windows | `SKJALD-<version>-Windows-x64-Setup.exe` | Installs `SKJALD.vst3` to `C:\Program Files\Common Files\VST3` and `skjald_offline.exe` to `C:\Program Files\SKJALD`. Windows SmartScreen may warn because the installer is not code-signed: choose *More info > Run anyway*. |
+| macOS | `SKJALD-<version>-macOS-universal.pkg` | Installs the plug-in to `/Library/Audio/Plug-Ins/VST3` and `skjald_offline` to `/usr/local/bin`. Not notarised: right-click the package and choose *Open* the first time. |
+| Linux (Debian, Ubuntu) | `SKJALD-<version>-Linux-x86_64.deb` | `sudo apt install ./SKJALD-<version>-Linux-x86_64.deb` installs to `/usr/lib/vst3` and `/usr/bin`. |
+| Linux (other) | `SKJALD-<version>-Linux-x86_64.tar.gz` | Unpack and run `./install.sh` (current user, `~/.vst3`) or `sudo ./install.sh --system`. |
+
+## Manual install
+
 Copy `SKJALD.vst3` (a folder/bundle, copy it whole) into the VST3 folder of your system, then rescan plug-ins in your DAW. SKJALD appears as **SacredHills › SKJALD** in the *Fx / Mastering* category.
 
 | System | Folder (all users) | Folder (current user) |
