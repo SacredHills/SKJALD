@@ -13,9 +13,10 @@ public:
     void prepare (double sampleRate) noexcept;
     void reset() noexcept;
 
-    /** attackScale > 1 slows the attack (used by Transient Emphasis to let hits through). */
+    /** grDbOut (optional): per-sample gain reduction in dB (positive, max over channels).
+        attackScale > 1 slows the attack (used by Transient Emphasis to let hits through). */
     void process (float* const* io, int numChannels, int numSamples, const LevelerConfig& cfg,
-                  float ceilingDb, float link, float attackScale) noexcept;
+                  float ceilingDb, float link, float attackScale, float* grDbOut = nullptr) noexcept;
 
     /** Current gain reduction in dB (positive number). */
     float getGainReductionDb() const noexcept { return currentGrDb; }
@@ -23,7 +24,7 @@ public:
 private:
     double fs = 48000.0;
     double msCoeff = 0.0;
-    double ms[2] { 0.0, 0.0 };
+    double ms1[2] { 0.0, 0.0 }, ms2[2] { 0.0, 0.0 }; // two cascaded one-poles on x^2
     double grDb[2] { 0.0, 0.0 };
     float currentGrDb = 0.0f;
 };

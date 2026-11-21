@@ -66,3 +66,7 @@ The Linux CI job failed in the independent verification step: Aggressive mode on
 - Manual testing in commercial DAWs (Windows/macOS) beyond pluginval and the host tests.
 - Code signing and notarisation for macOS distribution; installer packages.
 - Choosing a project licence, which is required by the JUCE licence terms (see README).
+
+## Maximizer distortion and Ozone-style rework
+
+See TECHNICAL.md section 3.x. Added Character parameter, rebuilt clipper, transient detector, leveler and release behaviour. 45 DSP tests, pluginval 10 and the 64-run true-peak matrix (modes x signals x Character 0/5/10, plus oversampling 1/2/8/16) all pass.

@@ -9,19 +9,23 @@ namespace skjald
 void Leveler::prepare (double sampleRate) noexcept
 {
     fs = sampleRate;
-    msCoeff = onePoleCoeff (0.010, fs); // 10 ms RMS integration
+    // Two cascaded 25 ms one-poles on x^2: the squared signal of a 40 Hz bass tone ripples at
+    // 80 Hz, and a single short integrator turns that ripple into gain modulation inside every
+    // cycle (intermodulation). Cascaded, the ripple is ~44 dB down. The peak limiter, not the
+    // leveler, catches fast events.
+    msCoeff = onePoleCoeff (0.025, fs);
     reset();
 }
 
 void Leveler::reset() noexcept
 {
-    ms[0] = ms[1] = 0.0;
+    ms1[0] = ms1[1] = ms2[0] = ms2[1] = 0.0;
     grDb[0] = grDb[1] = 0.0;
     currentGrDb = 0.0f;
 }
 
 void Leveler::process (float* const* io, int numChannels, int numSamples, const LevelerConfig& cfg,
-                       float ceilingDb, float link, float attackScale) noexcept
+                       float ceilingDb, float link, float attackScale, float* grDbOut) noexcept
 {
     numChannels = std::min (numChannels, 2);
     if (! cfg.enabled)
@@ -30,6 +34,8 @@ void Leveler::process (float* const* io, int numChannels, int numSamples, const 
         if (grDb[0] < 1.0e-4 && grDb[1] < 1.0e-4)
         {
             currentGrDb = 0.0f;
+            if (grDbOut != nullptr)
+                std::fill (grDbOut, grDbOut + numSamples, 0.0f);
             return;
         }
     }
@@ -50,12 +56,13 @@ void Leveler::process (float* const* io, int numChannels, int numSamples, const 
         for (int c = 0; c < numChannels; ++c)
         {
             const double x = io[c][i];
-            ms[c] = x * x + (ms[c] - x * x) * msCoeff;
+            ms1[c] = x * x + (ms1[c] - x * x) * msCoeff;
+            ms2[c] = ms1[c] + (ms2[c] - ms1[c]) * msCoeff;
 
             double gr = 0.0;
             if (cfg.enabled)
             {
-                const double level = 10.0 * std::log10 (ms[c] + 1.0e-20);
+                const double level = 10.0 * std::log10 (ms2[c] + 1.0e-20);
                 const double over = level - threshold;
                 if (over > knee * 0.5)
                     gr = over * slope;
@@ -76,6 +83,7 @@ void Leveler::process (float* const* io, int numChannels, int numSamples, const 
             target[1] += (m - target[1]) * ln;
         }
 
+        float sampleGr = 0.0f;
         for (int c = 0; c < numChannels; ++c)
         {
             const double coeff = target[c] > grDb[c] ? att : rel;
@@ -83,7 +91,10 @@ void Leveler::process (float* const* io, int numChannels, int numSamples, const 
             const float g = (float) std::pow (10.0, -grDb[c] * 0.05);
             io[c][i] *= g;
             maxGrSeen = std::max (maxGrSeen, (float) grDb[c]);
+            sampleGr = std::max (sampleGr, (float) grDb[c]);
         }
+        if (grDbOut != nullptr)
+            grDbOut[i] = sampleGr;
     }
     currentGrDb = maxGrSeen;
 }

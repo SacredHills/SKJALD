@@ -38,6 +38,7 @@ void usage()
         "  --input-gain <dB>     -24..24  (default 0)\n"
         "  --release <ms>        5..1000  (default 100)\n"
         "  --auto-release\n"
+        "  --character <0..10>   Fast..Slow overall speed (default 5)\n"
         "  --lookahead <ms>      0..10    (default 5)\n"
         "  --link <percent>      0..100   (default 100)\n"
         "  --link-mode <standard|split>\n"
@@ -226,6 +227,7 @@ int main (int argc, char** argv)
         else if (a == "--ceiling") p.max.ceilingDb = std::stof (next());
         else if (a == "--input-gain") p.max.inputGainDb = std::stof (next());
         else if (a == "--release") p.max.releaseMs = std::stof (next());
+        else if (a == "--character") p.max.character = std::stof (next());
         else if (a == "--auto-release") { p.max.autoRelease = true; settings[a] = "on"; }
         else if (a == "--lookahead") p.max.lookaheadMs = std::stof (next());
         else if (a == "--link") p.max.stereoLink = std::stof (next()) * 0.01f;

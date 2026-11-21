@@ -42,8 +42,11 @@ void LimiterCore::prepare (double baseRate, int oversamplingFactor, int maxLooka
         c.samplePeakAlign.prepare (std::max (1, detectorLatency));
     ceilingAlign.prepare (signalDelay);
 
-    clipMix.reset (osRate, 0.02);
-    clipLevelDb.reset (osRate, 0.05);
+    clipDepthDb.reset (osRate, 0.05);
+    headroomToDetector.prepare (std::max (1, detectorLatency));
+    headroomToOutput.prepare (signalDelay);
+    lfCoeff = (float) onePoleCoeff (1.0 / (2.0 * kPi * 150.0), osRate); // 150 Hz low-pass
+    lfDecay = (float) onePoleCoeff (0.030, osRate);                      // 30 ms peak decay
 
     const double ctrlRate = osRate / controlInterval;
     avgCoeff = onePoleCoeff (0.4, ctrlRate);
@@ -66,6 +69,10 @@ void LimiterCore::reset() noexcept
         c.release1 = c.release2 = c.lastHeld = 1.0f;
     }
     ceilingAlign.reset (1.0f);
+    headroomToDetector.reset (1.0f);
+    headroomToOutput.reset (1.0f);
+    lfState[0] = lfState[1] = lfEnv = fullEnv = lfShare = 0.0f;
+    clipScale = 1.0f;
     controlCounter = 0;
     intervalMinEnv = intervalMinHeld = 1.0f;
     demandAverageDb = 0.0;
@@ -102,14 +109,12 @@ void LimiterCore::computeTargets (const CoreSettings& s) noexcept
             }
         }
         requiredDelay = std::max (0, signalDelay - (window - 1) - detectorLatency);
-        clipMix.setCurrentAndTarget (s.clipEnabled ? 1.0f : 0.0f);
-        clipLevelDb.setCurrentAndTarget (s.clipAboveCeilingDb);
+        clipDepthDb.setCurrentAndTarget (s.clipDepthDb);
         firstBlock = false;
     }
     else
     {
-        clipMix.setTarget (s.clipEnabled ? 1.0f : 0.0f);
-        clipLevelDb.setTarget (s.clipAboveCeilingDb);
+        clipDepthDb.setTarget (s.clipDepthDb);
     }
 }
 
@@ -133,16 +138,30 @@ void LimiterCore::updateControl (const CoreSettings& s) noexcept
         factorRel = lerp (slow, (double) s.adaptiveFastFactor, spike);
     }
 
-    const double tau = std::clamp ((double) s.releaseMs * factorRel, 2.0, 5000.0) * 0.001;
-    // two cascaded stages are each shorter so the overall recovery time is comparable
-    releaseCoeff1 = (float) onePoleCoeff (s.releaseStages >= 2 ? tau * 0.6 : tau, osRate);
-    releaseCoeff2 = releaseCoeff1;
+    // Bass-dominated peaks: a short release would let the gain follow the bass waveform
+    // (intermodulation). Stretch it and give it a floor of lfReleaseFloorMs.
+    const double lf = smoothStep (0.5, 0.85, (double) lfShare);
+    const double lfScale = lerp (1.0, (double) s.lfReleaseFactor, lf);
+    const double floorMs = lf * (double) s.lfReleaseFloorMs;
+    const double tau = std::clamp (std::max ((double) s.releaseMs * factorRel * lfScale, floorMs), 2.0, 5000.0) * 0.001;
+    // Two cascaded stages give an S-shaped recovery without the corner of a single one-pole, which
+    // would leak the gain ripple of a bass waveform into harmonics. Algorithms with two stages
+    // always use them; the others add the second stage in proportion to the bass share.
+    const double tau1 = s.releaseStages >= 2 ? tau * 0.6 : tau;
+    const double tau2 = s.releaseStages >= 2 ? tau * 0.6 : lf * tau * 0.6;
+    releaseCoeff1 = (float) onePoleCoeff (tau1, osRate);
+    releaseCoeff2 = (float) onePoleCoeff (tau2, osRate);
+
+    // Bounded clipping is audible on sustained material and harmless on isolated peaks: shrink
+    // the allowed overshoot when the demand for gain reduction is sustained.
+    const float clipTarget = (float) (1.0 - 0.9 * smoothStep (2.5, 7.0, demandAverageDb + (double) currentSustainedGr));
+    clipScale += (clipTarget - clipScale) * 0.05f;
 
     intervalMinEnv = intervalMinHeld = 1.0f;
 }
 
 void LimiterCore::process (float* const* io, int numChannels, int numSamples, const CoreSettings& s, const float* ceiling,
-                           const float* transientClip) noexcept
+                           const float* transientClip, const float* sustainedGrDb) noexcept
 {
     numChannels = std::clamp (numChannels, 1, kMaxChannels);
     numSamples = std::min (numSamples, (int) ch[0].peaks.size());
@@ -151,48 +170,7 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
     const float link = clamp01 (s.link);
     const bool useKnee = s.kneeDb > 0.01f;
     const float kneeRatio = useKnee ? dbToGain (-s.kneeDb) : 1.0f;
-    const bool twoStageRelease = s.releaseStages >= 2;
-
-    // Pass 1: clipper (in place, crossfaded when switched) and detection.
-    const bool clipActive = clipMix.isSmoothing() || clipMix.getTarget() > 0.0f;
-    if (clipActive)
-    {
-        float clipRatio = dbToGain (clipLevelDb.getCurrent());
-        for (int i = 0; i < numSamples; ++i)
-        {
-            const float mix = clipMix.next();
-            if (clipLevelDb.isSmoothing())
-                clipRatio = dbToGain (clipLevelDb.next());
-            const float level = ceiling[i] * clipRatio;
-            for (int c = 0; c < numChannels; ++c)
-            {
-                const float x = io[c][i];
-                io[c][i] = x + (softClip (x, level, s.clipKnee) - x) * mix;
-            }
-        }
-    }
-    else
-    {
-        clipLevelDb.skip (numSamples);
-    }
-
-    if (transientClip != nullptr)
-    {
-        const float ratio = dbToGain (s.transientClipAboveCeilingDb);
-        for (int i = 0; i < numSamples; ++i)
-        {
-            const float w = transientClip[i];
-            if (w <= 0.0f)
-                continue;
-            const float level = ceiling[i] * ratio;
-            for (int c = 0; c < numChannels; ++c)
-            {
-                const float x = io[c][i];
-                io[c][i] = x + (softClip (x, level, s.transientClipKnee) - x) * w;
-            }
-        }
-    }
-
+    
     for (int c = 0; c < numChannels; ++c)
     {
         const float* x = io[c];
@@ -221,8 +199,35 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
 
     for (int i = 0; i < numSamples; ++i)
     {
+        // Low-frequency share of the peaks driving the limiter: peak envelope of the 150 Hz
+        // low-passed input over the peak envelope of the full-band input (per sample, so the
+        // result does not depend on the host block size)
+        {
+            float lfPeak = 0.0f, fullPeak = 0.0f;
+            for (int c = 0; c < numChannels; ++c)
+            {
+                lfState[c] = io[c][i] + (lfState[c] - io[c][i]) * lfCoeff;
+                lfPeak = std::max (lfPeak, std::abs (lfState[c]));
+                fullPeak = std::max (fullPeak, std::abs (io[c][i]));
+            }
+            lfEnv = std::max (lfPeak, lfPeak + (lfEnv - lfPeak) * lfDecay);
+            fullEnv = std::max (fullPeak, fullPeak + (fullEnv - fullPeak) * lfDecay);
+        }
+        if (sustainedGrDb != nullptr)
+            currentSustainedGr = sustainedGrDb[i];
+
         if (controlCounter == 0)
+        {
+            lfShare = fullEnv > 1.0e-6f ? std::min (1.0f, lfEnv / fullEnv) : 0.0f;
             updateControl (s);
+        }
+
+        // Bounded clip depth at this input sample: configured depth (shrunk under sustained heavy
+        // limiting) plus the transient part on detected attacks
+        float depthDb = clipDepthDb.next() * clipScale;
+        if (transientClip != nullptr)
+            depthDb += s.transientDepthDb * transientClip[i];
+        const float headroomNow = depthDb > 0.0f ? dbToGain (depthDb) : 1.0f;
         if (++controlCounter >= controlInterval)
             controlCounter = 0;
 
@@ -238,7 +243,10 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
 
         // Required gain per channel (detector values refer to the sample detectorLatency ago)
         const float ceil = ceiling[i];
-        const float kneeStart = ceil * kneeRatio;
+        const float hDet = headroomToDetector.process (headroomNow, detectorLatency);
+        const float hOut = headroomToOutput.process (headroomNow, signalDelay);
+        const float target = ceil * hDet;
+        const float kneeStart = target * kneeRatio;
         float req[kMaxChannels] { 1.0f, 1.0f };
         for (int c = 0; c < numChannels; ++c)
         {
@@ -247,10 +255,10 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
             if (det > kneeStart)
             {
                 if (! useKnee)
-                    r = ceil / det;
+                    r = target / det;
                 else
                 {
-                    const float over = gainToDb (det / ceil);
+                    const float over = gainToDb (det / target);
                     float gr;
                     if (over >= s.kneeDb)
                         gr = over;
@@ -313,7 +321,7 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
             // Each stage stays <= its input, so the envelope never exceeds the held minimum.
             st.release1 = held < st.release1 ? held : held + (st.release1 - held) * releaseCoeff1;
             st.release2 = st.release1 < st.release2 ? st.release1 : st.release1 + (st.release2 - st.release1) * releaseCoeff2;
-            const float env = twoStageRelease ? st.release2 : st.release1;
+            const float env = st.release2;
             intervalMinEnv = std::min (intervalMinEnv, env);
 
             if (boxesMoving)
@@ -325,7 +333,20 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
             g = st.boxes[2].process (g);
 
             const float delayed = st.signal.process (io[c][i], signalDelay);
-            io[c][i] = std::clamp (delayed * g, -clampLevel, clampLevel); // numerical safety net
+            float y = delayed * g;
+            {
+                // bounded soft clip: acts only where the gain computation allowed an overshoot
+                // The knee scales with the allowed overshoot (twice its size, never below the
+                // configured minimum), so the clipper is the identity below the ceiling and bends
+                // only the overshoot back to it. A small overshoot therefore means a tiny, narrow bend.
+                const float over = hOut - 1.0f;
+                if (over > 1.0e-4f)
+                {
+                    const float knee = std::clamp (1.0f - 2.0f * over, s.clipKnee, 0.995f);
+                    y = softClip (y, clampLevel, knee);
+                }
+            }
+            io[c][i] = std::clamp (y, -clampLevel, clampLevel); // numerical safety net
 
             minGain = std::min (minGain, g);
             gainSum += g;

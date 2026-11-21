@@ -23,28 +23,37 @@ struct CoreSettings
     float adaptiveSlowFactor = 1.6f;
     float adaptiveFastFactor = 0.35f;
     float link = 1.0f;
-    bool clipEnabled = false;
-    float clipAboveCeilingDb = 1.5f;
-    float clipKnee = 0.7f;
     bool truePeakDetection = true;
-    // transient-selective clipping: level above the ceiling and soft knee
-    float transientClipAboveCeilingDb = 0.3f;
-    float transientClipKnee = 0.5f;
+
+    // Bounded clipping (see LimiterCore): the gain computation lets the signal exceed the
+    // ceiling by clipDepthDb (everywhere) plus transientDepthDb * weight (on detected attacks),
+    // and a soft clipper then brings it back to the ceiling. The distortion is therefore
+    // bounded by the depth, however hard the limiter is driven.
+    float clipDepthDb = 0.0f;
+    float clipKnee = 0.8f;   // minimum knee (fraction of the ceiling); the actual knee narrows with the overshoot
+    float transientDepthDb = 4.5f;
+
+    // Frequency-aware release (IRC-style): when the peaks that drive the limiter are dominated by
+    // bass, the release is stretched and floored so the gain cannot follow the bass waveform.
+    float lfReleaseFactor = 2.5f;
+    float lfReleaseFloorMs = 60.0f;
 };
 
 /** Feed-forward lookahead peak limiter that runs at the oversampled rate.
 
     Per sample and channel:
-      1. optional soft clipper and transient-selective clipper (oversampled, so their
-         harmonics are filtered on the way down)
+      1. (no pre-clipping: clipping happens after the gain, see below)
       2. detector: |x|, or an interpolated reconstruction (>= 8x of the base rate in
          total) when true-peak detection is on
-      3. required gain r = min(1, ceiling / peak), with optional soft knee
+      3. required gain r = min(1, target / peak), target = ceiling * 10^(depth / 20) where
+         depth is the bounded clip depth (0 when clipping is off), with optional soft knee
       4. stereo link (convex blend towards the minimum of both channels: never louder)
       5. sliding minimum over the attack window A (hold)
       6. program-dependent release (one or two cascaded one-pole stages)
       7. 1-3 cascaded moving averages whose total support is A (attack shape)
       8. gain applied to the input delayed by a fixed amount
+      9. bounded soft clipper (oversampled, so its harmonics are filtered on the way down) that
+         brings the at most `depth` dB overshoot back to the ceiling
 
     Every averaged value is a minimum over a window that contains the aligned sample, so the
     smoothed gain is <= the required gain when the delayed sample is output: the ceiling
@@ -66,15 +75,18 @@ public:
     void reset() noexcept;
 
     /** ceiling: per-sample linear ceiling at the input time of each sample (numSamples values).
-        transientClip: optional per-sample weight (0..1) of the transient-selective clipper. */
+        transientClip: optional per-sample weight (0..1) of the transient-selective clipper.
+        sustainedGrDb: optional per-sample gain reduction (dB) already taken by the stages in front
+        (leveler); it scales the bounded clip depth down under sustained heavy limiting. */
     void process (float* const* io, int numChannels, int numSamples, const CoreSettings& s, const float* ceiling,
-                  const float* transientClip = nullptr) noexcept;
+                  const float* transientClip = nullptr, const float* sustainedGrDb = nullptr) noexcept;
 
     float getMinGain() const noexcept { return blockMinGain; }
     float getMeanGain() const noexcept { return blockMeanGain; }
 
 private:
     void computeTargets (const CoreSettings& s) noexcept;
+    void updateLowFrequencyShare() noexcept;
     void updateControl (const CoreSettings& s) noexcept;
 
     double osRate = 48000.0;
@@ -104,7 +116,16 @@ private:
     int ringSize = 1;
     DelayLine<float> ceilingAlign;
 
-    LinearSmoother clipMix, clipLevelDb;
+    LinearSmoother clipDepthDb;
+    DelayLine<float> headroomToDetector;  // aligned with the detector readings
+    DelayLine<float> headroomToOutput;    // aligned with the delayed signal
+    float currentSustainedGr = 0.0f;
+
+    // low-frequency share of the limiter's peaks (bass-dominated -> slower release)
+    float lfCoeff = 0.9f, lfDecay = 0.999f;
+    float lfState[kMaxChannels] {}, lfEnv = 0.0f, fullEnv = 0.0f;
+    float lfShare = 0.0f;
+    float clipScale = 1.0f;               // shrinks the clip depth under sustained heavy limiting
 
     // control-rate state
     float releaseCoeff1 = 0.999f, releaseCoeff2 = 0.999f;

@@ -28,6 +28,14 @@ constexpr T lerp (T a, T b, T t) noexcept { return a + (b - a) * t; }
 template <typename T>
 constexpr T clamp01 (T x) noexcept { return std::clamp (x, T (0), T (1)); }
 
+/** 0 below edge0, 1 above edge1, smooth (3t^2 - 2t^3) in between. */
+template <typename T>
+constexpr T smoothStep (T edge0, T edge1, T x) noexcept
+{
+    const T t = clamp01 ((x - edge0) / (edge1 - edge0));
+    return t * t * (T (3) - T (2) * t);
+}
+
 /** One-pole smoothing coefficient for a time constant in seconds (63% rise time). */
 inline double onePoleCoeff (double timeSeconds, double sampleRate) noexcept
 {

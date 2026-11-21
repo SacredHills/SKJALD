@@ -32,12 +32,14 @@ struct LevelerConfig
     float kneeDb = 6.0f;
 };
 
-/** Pre-limiter clipper (runs oversampled). Level is relative to the ceiling. */
+/** Bounded clipper (runs oversampled, after the limiter's gain). The limiter is allowed to leave
+    the signal up to depthDb above the ceiling; the soft clipper brings it back. The distortion
+    is therefore bounded by the depth, however hard the limiter is driven. */
 struct ClipperConfig
 {
-    bool builtIn = false;          // always active for this mode
-    float levelAboveCeilingDb = 1.5f;
-    float knee = 0.7f;             // fraction of the clip level where saturation starts
+    bool builtIn = false;          // always active for this mode (otherwise only with Soft Clip)
+    float depthDb = 1.0f;          // allowed overshoot above the ceiling
+    float knee = 0.8f;             // fraction of the ceiling where saturation starts
 };
 
 /** Everything that makes one limiting algorithm structurally different from another. */
@@ -53,6 +55,9 @@ struct ModeConfig
     float transientClip = 0.0f;          // built-in transient-selective clipping amount (0..1)
     float adaptiveSlowFactor = 1.6f;     // release stretch for sustained gain reduction
     float adaptiveFastFactor = 0.35f;    // release shrink for short peaks
+    float lfReleaseFactor = 2.5f;        // release stretch when the peaks are bass-dominated
+    float lfReleaseFloorMs = 60.0f;      // release floor when the peaks are bass-dominated
+    float transientDepthDb = 4.5f;       // overshoot allowed on detected attacks (Punch / Transient Emphasis)
 
     LevelerConfig leveler;
     ClipperConfig clipper;
@@ -72,7 +77,9 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.adaptiveSlowFactor = 1.8f;
             c.adaptiveFastFactor = 0.4f;
             c.leveler.enabled = false;
-            c.clipper = { false, 1.5f, 0.8f };
+            c.clipper = { false, 1.0f, 0.8f };
+            c.lfReleaseFactor = 3.0f;
+            c.lfReleaseFloorMs = 90.0f;
             break;
 
         case LimiterMode::Modern:
@@ -82,7 +89,9 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.releaseMultiplier = 0.8f;
             c.autoReleaseMs = 100.0f;
             c.leveler = { true, 9.0f, 1.5f, 20.0f, 250.0f, 3.0f, 6.0f };
-            c.clipper = { false, 1.0f, 0.7f };
+            c.clipper = { false, 0.7f, 0.8f };
+            c.lfReleaseFactor = 2.5f;
+            c.lfReleaseFloorMs = 70.0f;
             break;
 
         case LimiterMode::Aggressive:
@@ -94,7 +103,9 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.adaptiveSlowFactor = 1.3f;
             c.adaptiveFastFactor = 0.3f;
             c.leveler = { true, 11.0f, 2.0f, 10.0f, 150.0f, 4.5f, 6.0f };
-            c.clipper = { true, 1.0f, 0.6f };
+            c.clipper = { true, 0.5f, 0.8f };
+            c.lfReleaseFactor = 2.0f;
+            c.lfReleaseFloorMs = 60.0f;
             break;
 
         case LimiterMode::Punch:
@@ -105,7 +116,9 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.autoReleaseMs = 80.0f;
             c.transientClip = 0.6f;
             c.leveler = { true, 10.0f, 1.7f, 45.0f, 120.0f, 3.5f, 6.0f };
-            c.clipper = { false, 1.0f, 0.75f };
+            c.clipper = { false, 0.7f, 0.85f };
+            c.lfReleaseFactor = 2.0f;
+            c.lfReleaseFloorMs = 50.0f;
             break;
 
         case LimiterMode::Smooth:
@@ -118,7 +131,9 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.adaptiveSlowFactor = 2.0f;
             c.adaptiveFastFactor = 0.5f;
             c.leveler = { true, 6.0f, 1.25f, 50.0f, 500.0f, 1.5f, 8.0f };
-            c.clipper = { false, 2.5f, 0.85f };
+            c.clipper = { false, 1.2f, 0.85f };
+            c.lfReleaseFactor = 3.5f;
+            c.lfReleaseFloorMs = 110.0f;
             break;
     }
     return c;

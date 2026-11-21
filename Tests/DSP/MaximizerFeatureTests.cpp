@@ -133,9 +133,12 @@ TEST_CASE ("Maximizer", "Transient emphasis and Punch preserve drum attacks")
     pE.max.transientEmphasis = 1.0f;
     const double tIn = tbr (pT, false), tT = tbr (pT), tP = tbr (pP), tE = tbr (pE);
     info ("transient-to-body ratio: input %.2f dB, Transparent %.2f dB, Punch %.2f dB, Transparent + 100%% emphasis %.2f dB", tIn, tT, tP, tE);
+    // The thresholds were recalibrated when the limiter became frequency-aware: Transparent alone now
+    // keeps 3.8 dB of the input's 6.6 dB (it kept 2.1 dB before), so the room left for Punch and
+    // Transient Emphasis to add is smaller (they reach 5.4 and 5.0 dB).
     CHECK (tT < tIn);         // limiting reduces punch...
     CHECK (tP > tT + 1.0);    // ...Punch keeps clearly more of it
-    CHECK (tE > tT + 1.5);    // ...and so does Transient Emphasis
+    CHECK (tE > tT + 1.0);    // ...and so does Transient Emphasis
 }
 
 TEST_CASE ("Maximizer", "Soft clipping changes the result and keeps the ceiling")

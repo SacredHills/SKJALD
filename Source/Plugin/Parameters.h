@@ -18,6 +18,7 @@ inline constexpr const char* threshold = "threshold";
 inline constexpr const char* ceiling = "ceiling";
 inline constexpr const char* release = "release";
 inline constexpr const char* autoRelease = "autoRelease";
+inline constexpr const char* character = "character";
 inline constexpr const char* lookahead = "lookahead";
 inline constexpr const char* stereoLink = "stereoLink";
 inline constexpr const char* transient = "transient";
@@ -82,6 +83,7 @@ private:
     std::atomic<float>* pCeiling = nullptr;
     std::atomic<float>* pRelease = nullptr;
     std::atomic<float>* pAutoRelease = nullptr;
+    std::atomic<float>* pCharacter = nullptr;
     std::atomic<float>* pLookahead = nullptr;
     std::atomic<float>* pStereoLink = nullptr;
     std::atomic<float>* pTransient = nullptr;

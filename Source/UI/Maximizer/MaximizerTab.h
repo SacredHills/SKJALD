@@ -59,7 +59,7 @@ private:
     GRHistoryDisplay grDisplay;
     LoudnessPanel loudness;
     ChoiceSelector modeSelector;
-    Knob inputGain, threshold, ceiling, release, stereoLink, transient, lookahead;
+    Knob inputGain, threshold, ceiling, character, release, stereoLink, transient, lookahead;
     ParamToggle autoRelease, truePeak, bypass, delta, adaptive, softClip, autoGain;
     ChoiceSelector oversampling, linkMode;
     juce::TextButton advancedButton { "ADVANCED" };

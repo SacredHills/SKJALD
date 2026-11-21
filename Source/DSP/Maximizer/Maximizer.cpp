@@ -54,6 +54,8 @@ void Maximizer::prepare (double sampleRate, int maxBlockSize)
     ceilingOsBuf.assign ((size_t) (maxBlock << (kNumPaths - 1)), 1.0f);
     transientBuf.assign ((size_t) maxBlock, 0.0f);
     transientOsBuf.assign ((size_t) (maxBlock << (kNumPaths - 1)), 0.0f);
+    levelerGrBuf.assign ((size_t) maxBlock, 0.0f);
+    levelerGrOsBuf.assign ((size_t) (maxBlock << (kNumPaths - 1)), 0.0f);
     transientAmount.reset (fs, 0.03);
 
     driveDb.reset (fs, 0.03);
@@ -147,27 +149,35 @@ CoreSettings Maximizer::buildCoreSettings() const noexcept
     CoreSettings s;
     const float e = clamp01 (params.transientEmphasis);
     s.lookaheadMs = std::clamp (params.lookaheadMs, 0.0f, (float) kMaxLookaheadMs);
-    s.attackFraction = modeCfg.attackFraction * (1.0f - 0.6f * e);
+    // Character: overall speed, like Ozone's Fast..Slow slider. 5 is neutral; each step is 23 %
+    // (0 -> 0.35x times, 10 -> 2.8x times). Release scales fully, the attack window with the square root.
+    const float speed = std::pow (2.0f, (std::clamp (params.character, 0.0f, 10.0f) - 5.0f) * 0.3f);
+    s.attackFraction = std::clamp (modeCfg.attackFraction * (1.0f - 0.6f * e) * std::sqrt (speed), 0.05f, 1.0f);
     s.attackStages = modeCfg.attackStages;
     s.kneeDb = modeCfg.kneeDb;
     s.releaseStages = modeCfg.releaseStages;
-    s.releaseMs = params.autoRelease ? modeCfg.autoReleaseMs : std::clamp (params.releaseMs, 1.0f, 5000.0f);
+    s.releaseMs = std::clamp ((params.autoRelease ? modeCfg.autoReleaseMs : params.releaseMs) * speed, 1.0f, 5000.0f);
     s.adaptiveRelease = params.adaptiveRelease || params.autoRelease;
     s.adaptiveSlowFactor = modeCfg.adaptiveSlowFactor;
     s.adaptiveFastFactor = modeCfg.adaptiveFastFactor;
     s.link = clamp01 (params.stereoLink); // peak stage always follows the knob (Split only changes the leveler)
-    s.clipEnabled = modeCfg.clipper.builtIn || params.softClip;
-    float clipAbove = modeCfg.clipper.levelAboveCeilingDb;
-    if (modeCfg.clipper.builtIn && params.softClip)
-        clipAbove -= 0.5f; // more clipping on top of the built-in stage
-    s.clipAboveCeilingDb = clipAbove;
+    // Bounded clipping depth: built-in for Aggressive, or the Soft Clip switch (1.5x on top of a built-in stage)
+    float depth = 0.0f;
+    if (modeCfg.clipper.builtIn)
+        depth = modeCfg.clipper.depthDb * (params.softClip ? 1.5f : 1.0f);
+    else if (params.softClip)
+        depth = modeCfg.clipper.depthDb;
+    s.clipDepthDb = depth;
     s.clipKnee = modeCfg.clipper.knee;
+    s.transientDepthDb = modeCfg.transientDepthDb;
+    s.lfReleaseFactor = modeCfg.lfReleaseFactor;
+    s.lfReleaseFloorMs = modeCfg.lfReleaseFloorMs;
     s.truePeakDetection = params.truePeak;
     return s;
 }
 
 void Maximizer::runPath (Path& path, float* const* in, float* const* out, int numChannels, int n, const CoreSettings& cs,
-                         const float* ceilingBase, const float* transientBase) noexcept
+                         const float* ceilingBase, const float* transientBase, const float* levelerGrBase) noexcept
 {
     const int F = path.os.getFactor();
     // Ceiling at the oversampled rate (sample-and-hold), including the true-peak core margin
@@ -184,9 +194,13 @@ void Maximizer::runPath (Path& path, float* const* in, float* const* out, int nu
             std::fill (transOs + i * F, transOs + (i + 1) * F, transientBase[i]);
     }
 
+    float* grOs = levelerGrOsBuf.data();
+    for (int i = 0; i < n; ++i)
+        std::fill (grOs + i * F, grOs + (i + 1) * F, levelerGrBase[i]);
+
     path.os.upsample (in, numChannels, n);
     float* osPtrs[kMaxChannels] { path.os.getOversampledChannel (0), path.os.getOversampledChannel (1) };
-    path.core.process (osPtrs, numChannels, n * F, cs, ceilOs, transOs);
+    path.core.process (osPtrs, numChannels, n * F, cs, ceilOs, transOs, grOs);
     path.os.downsample (out, numChannels, n);
     if (path.padDelay > 0)
         for (int c = 0; c < numChannels; ++c)
@@ -238,7 +252,8 @@ void Maximizer::process (float* const* io, int numChannels, int numSamples) noex
     for (int c = 0; c < numChannels; ++c)
         std::copy (driven[c], driven[c] + n, bufA[c]);
     const float levelerLink = params.linkMode == StereoLinkMode::Split ? 1.0f : clamp01 (params.stereoLink);
-    leveler.process (bufA, numChannels, n, modeCfg.leveler, ceilDb, levelerLink, 1.0f + 2.0f * clamp01 (params.transientEmphasis));
+    leveler.process (bufA, numChannels, n, modeCfg.leveler, ceilDb, levelerLink, 1.0f + 2.0f * clamp01 (params.transientEmphasis),
+                     levelerGrBuf.data());
     // transient-selective clipping weights (Transient Emphasis / Punch)
     const float* transient = nullptr;
     {
@@ -260,8 +275,8 @@ void Maximizer::process (float* const* io, int numChannels, int numSamples) noex
         // run the pending path on a copy of the same input
         for (int c = 0; c < numChannels; ++c)
             std::copy (bufA[c], bufA[c] + n, bufB[c]);
-        runPath (paths[(size_t) activePath], bufA, bufA, numChannels, n, cs, ceil, transient);
-        runPath (paths[(size_t) pendingPath], bufB, bufB, numChannels, n, cs, ceil, transient);
+        runPath (paths[(size_t) activePath], bufA, bufA, numChannels, n, cs, ceil, transient, levelerGrBuf.data());
+        runPath (paths[(size_t) pendingPath], bufB, bufB, numChannels, n, cs, ceil, transient, levelerGrBuf.data());
 
         if (warmupRemaining > 0)
         {
@@ -284,7 +299,7 @@ void Maximizer::process (float* const* io, int numChannels, int numSamples) noex
     }
     else
     {
-        runPath (paths[(size_t) activePath], bufA, bufA, numChannels, n, cs, ceil, transient);
+        runPath (paths[(size_t) activePath], bufA, bufA, numChannels, n, cs, ceil, transient, levelerGrBuf.data());
     }
 
     // 4. output verification and final clamp

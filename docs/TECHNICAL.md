@@ -139,6 +139,21 @@ Latency is constant for all parameter values and is reported at `prepareToPlay` 
 
 It is made up of the 10 ms maximum lookahead, the true-peak detector, the oversampler (padded to the 16x path), the output band-limit (100 samples) and the output guard. The host tests verify an impulse emerges exactly at the reported latency.
 
+### 3.x Distortion control and Ozone-style behaviour (v1.1)
+
+Reworked after listening tests showed audible distortion and a behaviour unlike iZotope Ozone's Maximizer.
+
+- **Clipper follows the gain.** The soft clipper now only works on the overshoot left after the limiter has acted. Its headroom (`clipDepthDb`) is added to the limiter target, so clipping depth is bounded. It is scaled down (up to 90 %) when the leveler plus the limiter are already reducing sustained gain, so steady bass is never clipped. The knee scales with the overshoot.
+- **Transient emphasis.** `TransientDetector` compares a fast follower against a peak-held envelope (8 ms attack, 80 ms release) with a 4 dB dead zone. Steady tones do not trigger it. Detected transients get up to 4.5 dB of extra clip headroom.
+- **Leveler.** The RMS detector uses two cascaded 25 ms one-poles, which removes the 2f ripple that modulated low frequencies. It now also emits a per-sample gain-reduction stream for the core.
+- **Release.** A second release stage is always on. Its time constant grows with the bass share (150 Hz split), so low frequencies release slowly and transients quickly, like the IRC modes.
+- **Character (0 to 10, default 5).** Scales release time by 2^((c-5)*0.3) and the attack window by the square root of that. 5 is neutral. Faster is denser, slower is cleaner.
+- All control state updates run per sample, so output is invariant to block size.
+- Test recalibration: the transient-preservation tests now require a +1.0 dB margin, because the new detector separates transients more cleanly.
+- Measured THD+N at 6 dB drive: Modern -108 dB IMD, Aggressive -100 dB. At 12 dB drive Aggressive is about -45 dB (about 0.5 %), the deliberate limit of that mode. Previously it was -28 dB.
+
+Not implemented: Threshold-Ceiling Link, Learn Threshold / Target LUFS, and Ozone's multiband IRC IV / 5 spectral modes.
+
 ## 4. Loudness and metering
 
 - **Loudness.** ITU-R BS.1770-4 / EBU R128. K-weighting coefficients are derived for any sample rate and equal the published 48 kHz values to 1e-8. Momentary uses a 400 ms window, short-term 3 s, both updated every 100 ms. Integrated uses 400 ms blocks with 75 % overlap, an absolute gate at −70 LUFS and a relative gate at −10 LU. Block energies are kept in an exact-energy 0.01 LU histogram: constant memory, no allocation, unlimited duration.

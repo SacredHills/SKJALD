@@ -30,6 +30,7 @@ namespace
         bool adaptive = true, softClip = false;
         int linkMode = 0;
         float inputGain = 0.0f;
+        float character = 5.0f;
     };
 
     void maxValues (V& v, const MaxSettings& m)
@@ -48,6 +49,7 @@ namespace
         v[params::softClip] = m.softClip ? 1.0f : 0.0f;
         v[params::linkMode] = (float) m.linkMode;
         v[params::inputGain] = m.inputGain;
+        v[params::character] = m.character;
     }
 
     // ---- EQ curves (bands keep their default slots: 0 HP, 1 LS, 2-5 bells, 6 HS, 7 LP) ----

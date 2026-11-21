@@ -188,6 +188,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       inputGain (p.getState(), params::inputGain, "Input Gain", true),
       threshold (p.getState(), params::threshold, "Threshold"),
       ceiling (p.getState(), params::ceiling, "Ceiling"),
+      character (p.getState(), params::character, "Character"),
       release (p.getState(), params::release, "Release"),
       stereoLink (p.getState(), params::stereoLink, "Stereo Link", false, colours::analysis),
       transient (p.getState(), params::transient, "Transient", false, colours::analysis),
@@ -207,7 +208,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
                                     "Dense and loud, controlled drive", "Keeps kick and snare impact",
                                     "Gentle, for acoustic material" });
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &grDisplay, &loudness, &modeSelector, &inputGain, &threshold, &ceiling, &release, &stereoLink, &transient,
+             &grDisplay, &loudness, &modeSelector, &inputGain, &threshold, &ceiling, &character, &release, &stereoLink, &transient,
              &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser })
         addAndMakeVisible (c);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &softClip, &autoGain, &linkMode })
@@ -247,10 +248,11 @@ void MaximizerTab::resized()
         auto k = knobArea.reduced (12, 10);
         k.removeFromTop (18);
         auto right = k.removeFromRight (230);
-        const int kw = k.getWidth() / 6;
+        const int kw = k.getWidth() / 7;
         inputGain.setBounds (k.removeFromLeft (kw));
         threshold.setBounds (k.removeFromLeft (kw));
         ceiling.setBounds (k.removeFromLeft (kw));
+        character.setBounds (k.removeFromLeft (kw));
         auto rel = k.removeFromLeft (kw);
         autoRelease.setBounds (rel.removeFromBottom (24).withSizeKeepingCentre (64, 24));
         release.setBounds (rel);

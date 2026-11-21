@@ -119,6 +119,8 @@ Layout createLayout()
     mx->addChild (std::make_unique<FloatParam> (id (release), "Release", logRange (5.0f, 1000.0f), 100.0f,
                                                 Attributes().withLabel ("ms").withStringFromValueFunction (formatMs)));
     mx->addChild (std::make_unique<BoolParam> (id (autoRelease), "Auto Release", false));
+    mx->addChild (std::make_unique<FloatParam> (id (character), "Character", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
+                                                Attributes().withStringFromValueFunction ([] (float v, int) { return juce::String (v, 1); })));
     mx->addChild (std::make_unique<FloatParam> (id (lookahead), "Lookahead", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
                                                 Attributes().withLabel ("ms").withStringFromValueFunction ([] (float v, int) { return juce::String (v, 2) + " ms"; })));
     mx->addChild (std::make_unique<FloatParam> (id (stereoLink), "Stereo Link", juce::NormalisableRange<float> (0.0f, 100.0f, 0.1f), 100.0f,
@@ -150,7 +152,7 @@ juce::StringArray eqParameterIDs()
 
 juce::StringArray maximizerParameterIDs()
 {
-    return { inputGain, threshold, ceiling, release, autoRelease, lookahead, stereoLink, transient, mode,
+    return { inputGain, threshold, ceiling, release, autoRelease, character, lookahead, stereoLink, transient, mode,
              truePeak, oversampling, adaptiveRelease, softClip, linkMode, autoGain, delta, maxBypass };
 }
 
@@ -180,6 +182,7 @@ ParameterReader::ParameterReader (juce::AudioProcessorValueTreeState& s)
     pCeiling = get (ceiling);
     pRelease = get (release);
     pAutoRelease = get (autoRelease);
+    pCharacter = get (character);
     pLookahead = get (lookahead);
     pStereoLink = get (stereoLink);
     pTransient = get (transient);
@@ -220,6 +223,7 @@ EngineParams ParameterReader::read() const noexcept
     m.ceilingDb = f (pCeiling);
     m.releaseMs = f (pRelease);
     m.autoRelease = b (pAutoRelease);
+    m.character = f (pCharacter);
     m.lookaheadMs = f (pLookahead);
     m.stereoLink = f (pStereoLink) * 0.01f;
     m.transientEmphasis = f (pTransient) * 0.01f;

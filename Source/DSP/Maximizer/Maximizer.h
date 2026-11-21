@@ -22,6 +22,7 @@ struct MaximizerParams
     float ceilingDb = -1.0f;       // -12 .. 0   (dBTP when true peak is on)
     float releaseMs = 100.0f;      // 5 .. 1000
     bool autoRelease = false;
+    float character = 5.0f;        // 0 (fast) .. 10 (slow): overall attack and release speed, 5 = neutral
     float lookaheadMs = 5.0f;      // 0 .. 10
     float stereoLink = 1.0f;       // 0 .. 1
     float transientEmphasis = 0.0f; // 0 .. 1
@@ -39,7 +40,7 @@ struct MaximizerParams
 /** Mastering maximizer. Signal flow (per channel, linked control):
 
       input -> drive -> leveler (RMS, base rate) [+ transient detection]
-            -> [upsample -> clipper -> lookahead peak core -> downsample]  (oversampled path)
+            -> [upsample -> lookahead peak core (+ bounded soft clip after the gain) -> downsample]  (oversampled path)
             -> latency pad -> true-peak guard -> ceiling clamp -> AGC -> out
 
     Total latency is constant for every setting (all oversampling paths are padded to the
@@ -84,7 +85,7 @@ private:
     };
 
     void runPath (Path& path, float* const* in, float* const* out, int numChannels, int n, const CoreSettings& cs,
-                  const float* ceilingBase, const float* transientBase) noexcept;
+                  const float* ceilingBase, const float* transientBase, const float* levelerGrBase) noexcept;
     CoreSettings buildCoreSettings() const noexcept;
 
     double fs = 48000.0;
@@ -102,7 +103,7 @@ private:
 
     std::array<DelayLine<float>, kMaxChannels> dryDelay, deltaDelay;
     DelayLine<float> ceilingToGuard, ceilingToOutput;  // ceiling stream aligned with the audio
-    std::vector<float> ceilingBuf, ceilingOsBuf, guardCeilingBuf, transientBuf, transientOsBuf;
+    std::vector<float> ceilingBuf, ceilingOsBuf, guardCeilingBuf, transientBuf, transientOsBuf, levelerGrBuf, levelerGrOsBuf;
     LinearSmoother transientAmount;
     LinearSmoother driveDb, ceilingDb, wetMix, deltaMix;
 
