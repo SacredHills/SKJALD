@@ -159,7 +159,7 @@ void MeterStrip::paint (juce::Graphics& g)
     row (ra, "OUTPUT PEAK", formatDb (juce::Decibels::gainToDecibels (outPeakHold, -100.0f)) + " dB", text);
     row (ra, "TRUE PEAK", formatDb (tp, 2) + " dBTP", tp > ceiling + 0.05f ? danger : text);
     // follows the LUFS / RMS switch of the Maximizer tab's loudness panel
-    const bool rms = (bool) processor.getState().state.getProperty ("meterShowsRms", false);
+    const bool rms = (bool) processor.getState().state.getProperty ("meterShowsRms", true);
     const float li = rms ? e.getOutputRms().getIntegrated() : e.getOutputLoudness().getIntegrated();
     const float ls = rms ? e.getOutputRms().getShortTerm() : e.getOutputLoudness().getShortTerm();
     const juce::String unit = rms ? " RMS" : " LUFS";

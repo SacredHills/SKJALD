@@ -16,7 +16,7 @@ Knob::Knob (APVTS& state, const juce::String& paramID, const juce::String& n, bo
     slider.getProperties().set ("bipolar", bipolar);
     slider.getProperties().set ("accent", (juce::int64) accentColour.getARGB());
     slider.setPopupDisplayEnabled (false, false, nullptr);
-    slider.setTooltip (param->getName (64) + "  (double-click to reset, shift-drag for fine control)");
+    slider.setTooltip (param->getName (64) + "  (double-click to reset, shift-drag for fine control, click the number to type a value)");
     addAndMakeVisible (slider);
 
     attachment = std::make_unique<APVTS::SliderAttachment> (state, paramID, slider);
@@ -31,6 +31,48 @@ void Knob::resized()
     r.removeFromBottom (compact ? 16 : 20);
     const int side = juce::jmin (r.getWidth(), r.getHeight());
     slider.setBounds (r.withSizeKeepingCentre (side, side));
+}
+
+juce::Rectangle<int> Knob::valueArea() const
+{
+    return getLocalBounds().removeFromBottom (compact ? 16 : 20);
+}
+
+void Knob::mouseDown (const juce::MouseEvent& e)
+{
+    if (valueArea().contains (e.getPosition()))
+        showValueEditor();
+}
+
+// Click the number under a knob to type a value (Enter applies, Esc cancels). Understands "-2", "-2.5 dB", "1.2k", "70ms".
+void Knob::showValueEditor()
+{
+    editor = std::make_unique<juce::TextEditor>();
+    editor->setJustification (juce::Justification::centred);
+    editor->setFont (font (compact ? 12.5f : 14.0f));
+    editor->setColour (juce::TextEditor::backgroundColourId, colours::background);
+    editor->setColour (juce::TextEditor::textColourId, colours::text);
+    editor->setColour (juce::TextEditor::outlineColourId, colours::accent);
+    editor->setColour (juce::TextEditor::focusedOutlineColourId, colours::accent);
+    editor->setBounds (valueArea());
+    editor->setText (param->getCurrentValueAsText(), false);
+    auto close = [this] { juce::MessageManager::callAsync ([safe = juce::Component::SafePointer<Knob> (this)] { if (safe != nullptr) safe->editor.reset(); }); };
+    editor->onReturnKey = [this, close]
+    {
+        auto t = editor->getText().trim().toLowerCase();
+        double v = t.retainCharacters ("-+.0123456789").getDoubleValue();
+        if (t.containsChar ('k') && ! t.containsIgnoreCase ("ms"))
+            v *= 1000.0;
+        const auto lo = slider.getMinimum(), hi = slider.getMaximum();
+        if (t.containsAnyOf ("0123456789"))
+            slider.setValue (juce::jlimit (lo, hi, v), juce::sendNotificationSync);
+        close();
+    };
+    editor->onEscapeKey = close;
+    editor->onFocusLost = close;
+    addAndMakeVisible (*editor);
+    editor->grabKeyboardFocus();
+    editor->selectAll();
 }
 
 void Knob::paint (juce::Graphics& g)

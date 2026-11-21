@@ -158,7 +158,7 @@ LoudnessPanel::LoudnessPanel (SkjaldAudioProcessor& p) : processor (p)
 // the choice is kept in the plug-in state so it survives closing the editor and reloading a session
 bool LoudnessPanel::showRms() const
 {
-    return (bool) processor.getState().state.getProperty ("meterShowsRms", false);
+    return (bool) processor.getState().state.getProperty ("meterShowsRms", true);
 }
 
 void LoudnessPanel::setShowRms (bool rms)
@@ -299,6 +299,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
         const float now = (float) threshold.getSlider().getValue();
         const float delta_ = now - lastThreshold;
         lastThreshold = now;
+        threshold.repaint(); // this handler replaced the knob's own repaint callback
         // only for user edits: preset loads and automation must not drag the ceiling along
         if (thresholdLink.getToggleState() && threshold.getSlider().isMouseOverOrDragging (true) && std::abs (delta_) > 1.0e-4f)
         {

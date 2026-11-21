@@ -18,6 +18,7 @@ public:
     void resized() override;
     void paint (juce::Graphics&) override;
     void setCompact (bool c) { compact = c; resized(); }
+    void mouseDown (const juce::MouseEvent&) override;
 
     juce::Slider& getSlider() noexcept { return slider; }
 
@@ -38,6 +39,9 @@ private:
     juce::RangedAudioParameter* param = nullptr;
     std::unique_ptr<APVTS::SliderAttachment> attachment;
     bool compact = false;
+    juce::Rectangle<int> valueArea() const;
+    void showValueEditor();
+    std::unique_ptr<juce::TextEditor> editor;
 };
 
 /** Toggle button bound to a boolean parameter (pill style). */
