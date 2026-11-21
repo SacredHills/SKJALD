@@ -214,9 +214,10 @@ void LoudnessPanel::paint (juce::Graphics& g)
     };
     if (showRms())
     {
-        big (r, "WHOLE SONG (INTEGRATED)  RMS dBFS", e.getOutputRms().getIntegrated(), accent, 34.0f);
-        big (r, "SHORT-TERM (3 s)  RMS dBFS", e.getOutputRms().getShortTerm(), text, 28.0f);
-        big (r, "MOMENTARY  RMS dBFS", e.getOutputRms().getMomentary(), textDim, 20.0f);
+        big (r, "OUTPUT RMS (300 ms)  dBFS", e.getOutputRms().getWindow(), accent, 34.0f);
+        big (r, "INPUT RMS (300 ms)  dBFS", e.getInputRms().getWindow(), text, 28.0f);
+        big (r, "OUTPUT RMS MAX  |  SONG AVG " + (e.getOutputRms().getIntegrated() <= -99.0f ? juce::String ("-inf") : juce::String (e.getOutputRms().getIntegrated(), 1)),
+             e.getOutputRms().getWindowMax(), textDim, 20.0f);
     }
     else
     {

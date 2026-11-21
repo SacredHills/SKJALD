@@ -172,7 +172,11 @@ TEST_CASE ("Loudness", "RMS meter: sine reads amplitude - 3.01 dB, stereo equals
     CHECK_NEAR (m.getMomentary(), -13.01, 0.02);
     CHECK_NEAR (m.getShortTerm(), -13.01, 0.02);
     CHECK_NEAR (m.getIntegrated(), -13.01, 0.02);
+    CHECK_NEAR (m.getWindow(), -13.01, 0.02);
+    CHECK_NEAR (m.getWindowMax(), -13.01, 0.02);
     feed (m, sig, (int) (5 * fs), (int) (3 * fs));
+    CHECK (m.getWindow() < -90.0f);                    // 300 ms window follows the signal down...
+    CHECK_NEAR (m.getWindowMax(), -13.01, 0.02);       // ...while the max readout holds
     CHECK (m.getMomentary() < -90.0f);                 // silence: momentary falls away
     CHECK_NEAR (m.getIntegrated(), -13.01, 0.05);      // integrated keeps the value, silence is not averaged in
     m.resetIntegrated();

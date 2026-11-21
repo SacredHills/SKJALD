@@ -38,6 +38,8 @@ public:
         resetIntegrated();
         momentary.store (kSilenceDb);
         shortTerm.store (kSilenceDb);
+        window.store (kSilenceDb);
+        windowMax.store (kSilenceDb);
     }
 
     void resetIntegrated() noexcept { integratedResetRequest.store (true, std::memory_order_relaxed); }
@@ -49,6 +51,7 @@ public:
             integratedEnergy = 0.0;
             integratedCount = 0;
             integrated.store (kSilenceDb, std::memory_order_relaxed);
+            windowMax.store (kSilenceDb, std::memory_order_relaxed);
         }
         numChannels = std::min (numChannels, kMaxChannels);
         for (int i = 0; i < numSamples; ++i)
@@ -64,6 +67,10 @@ public:
 
     float getMomentary() const noexcept { return momentary.load (std::memory_order_relaxed); }
     float getShortTerm() const noexcept { return shortTerm.load (std::memory_order_relaxed); }
+    /** Short-window RMS (last 300 ms) - the kind of reading a plugin I/O meter shows. */
+    float getWindow() const noexcept { return window.load (std::memory_order_relaxed); }
+    /** Highest 300 ms reading since the last reset (the "max" readout). */
+    float getWindowMax() const noexcept { return windowMax.load (std::memory_order_relaxed); }
     float getIntegrated() const noexcept { return integrated.load (std::memory_order_relaxed); }
 
     static float powerToDb (double p) noexcept { return p <= 1.0e-10 ? kSilenceDb : (float) (10.0 * std::log10 (p)); }
@@ -87,6 +94,10 @@ private:
             return s / std::max (1, count);
         };
         momentary.store (powerToDb (mean (4)), std::memory_order_relaxed);
+        const float w = powerToDb (mean (3));
+        window.store (w, std::memory_order_relaxed);
+        if (w > windowMax.load (std::memory_order_relaxed))
+            windowMax.store (w, std::memory_order_relaxed);
         shortTerm.store (powerToDb (mean (30)), std::memory_order_relaxed);
 
         if (power > 1.0e-7) // -70 dBFS
@@ -103,7 +114,7 @@ private:
     int subBlockCount = 0, subBlockWrite = 0;
     double integratedEnergy = 0.0;
     uint64_t integratedCount = 0;
-    std::atomic<float> momentary { kSilenceDb }, shortTerm { kSilenceDb }, integrated { kSilenceDb };
+    std::atomic<float> momentary { kSilenceDb }, window { kSilenceDb }, windowMax { kSilenceDb }, shortTerm { kSilenceDb }, integrated { kSilenceDb };
     std::atomic<bool> integratedResetRequest { false };
 };
 } // namespace skjald
