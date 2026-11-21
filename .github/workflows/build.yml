@@ -133,7 +133,7 @@ jobs:
           if [ "$RUNNER_OS" = "Windows" ]; then
             choco install innosetup -y --no-progress >/dev/null || true
             ISCC="/c/Program Files (x86)/Inno Setup 6/ISCC.exe"
-            "$ISCC" "/DAppVersion=$VERSION" "/DSourceDir=$(cygpath -w "$PWD/package")" "/DOutDir=$(cygpath -w "$PWD/installers")" installer/windows/SKJALD.iss
+            MSYS2_ARG_CONV_EXCL="*" MSYS_NO_PATHCONV=1 "$ISCC" "/DAppVersion=$VERSION" "/DSourceDir=$(cygpath -w "$PWD/package")" "/DOutDir=$(cygpath -w "$PWD/installers")" installer/windows/SKJALD.iss
           elif [ "$RUNNER_OS" = "macOS" ]; then
             installer/macos/build_pkg.sh package "$VERSION" installers
           else
