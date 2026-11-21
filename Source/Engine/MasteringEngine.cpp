@@ -21,6 +21,8 @@ void MasteringEngine::prepare (double sampleRate, int numChannels)
     outputTruePeak.prepare (fs);
     outputLoudness.prepare (fs);
     inputLoudness.prepare (fs);
+    outputRms.prepare (fs);
+    inputRms.prepare (fs);
     firstParams = true;
     reset();
 }
@@ -36,6 +38,8 @@ void MasteringEngine::reset() noexcept
     outputTruePeak.reset();
     outputLoudness.reset();
     inputLoudness.reset();
+    outputRms.reset();
+    inputRms.reset();
 }
 
 void MasteringEngine::setParameters (const EngineParams& p) noexcept
@@ -67,6 +71,7 @@ void MasteringEngine::process (float* const* io, int numChannels, int numSamples
                 for (int i = 0; i < n; ++i)
                     inPk = std::max (inPk, std::abs (chunk[c][i]));
         inputLoudness.process (chunkConst, numChannels, n);
+        inputRms.process (chunkConst, numChannels, n);
         for (int c = 0; c < numChannels; ++c)
             std::copy (chunk[c], chunk[c] + n, inputCopy[(size_t) c].begin());
 
@@ -96,6 +101,7 @@ void MasteringEngine::process (float* const* io, int numChannels, int numSamples
         outputPeak.process (chunkConst, numChannels, n);
         outputTruePeak.process (chunkConst, numChannels, n);
         outputLoudness.process (chunkConst, numChannels, n);
+        outputRms.process (chunkConst, numChannels, n);
 
         const float bypassed = processedMix.getCurrent();
         const float grP = maximizer.getPeakGainReductionDb() * bypassed;

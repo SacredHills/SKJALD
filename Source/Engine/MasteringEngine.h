@@ -5,6 +5,7 @@
 #include "../DSP/Utilities/DelayLine.h"
 #include "../DSP/Utilities/Smoothers.h"
 #include "../Metering/LoudnessMeter.h"
+#include "../Metering/RmsMeter.h"
 #include "../Metering/TruePeakMeter.h"
 
 #include <array>
@@ -56,6 +57,8 @@ public:
     TruePeakMeter& getOutputTruePeakMeter() noexcept { return outputTruePeak; }
     LoudnessMeter& getOutputLoudness() noexcept { return outputLoudness; }
     LoudnessMeter& getInputLoudness() noexcept { return inputLoudness; }
+    RmsMeter& getOutputRms() noexcept { return outputRms; }
+    RmsMeter& getInputRms() noexcept { return inputRms; }
 
     float getGainReductionDb() const noexcept { return grPeakDb.load (std::memory_order_relaxed); }
     float getAverageGainReductionDb() const noexcept { return grAvgDb.load (std::memory_order_relaxed); }
@@ -73,6 +76,7 @@ private:
     SamplePeakMeter inputPeak, outputPeak;
     TruePeakMeter outputTruePeak;
     LoudnessMeter outputLoudness, inputLoudness;
+    RmsMeter outputRms, inputRms;
     std::atomic<float> grPeakDb { 0.0f }, grAvgDb { 0.0f }, agcDb { 0.0f };
 
     EngineTap* tap = nullptr;

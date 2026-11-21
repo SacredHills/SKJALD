@@ -143,12 +143,39 @@ LoudnessPanel::LoudnessPanel (SkjaldAudioProcessor& p) : processor (p)
 {
     grMeter.setReductionStyle (true);
     addAndMakeVisible (grMeter);
+    for (auto* b : { &lufsButton, &rmsButton })
+    {
+        b->setClickingTogglesState (false);
+        addAndMakeVisible (*b);
+    }
+    lufsButton.setTooltip ("Show loudness in LUFS (K-weighted, ITU-R BS.1770)");
+    rmsButton.setTooltip ("Show plain RMS level in dBFS (no weighting; a full-scale sine reads -3 dB)");
+    lufsButton.onClick = [this] { setShowRms (false); };
+    rmsButton.onClick = [this] { setShowRms (true); };
+    setShowRms (showRms());
+}
+
+// the choice is kept in the plug-in state so it survives closing the editor and reloading a session
+bool LoudnessPanel::showRms() const
+{
+    return (bool) processor.getState().state.getProperty ("meterShowsRms", false);
+}
+
+void LoudnessPanel::setShowRms (bool rms)
+{
+    processor.getState().state.setProperty ("meterShowsRms", rms, nullptr);
+    lufsButton.setToggleState (! rms, juce::dontSendNotification);
+    rmsButton.setToggleState (rms, juce::dontSendNotification);
+    repaint();
 }
 
 void LoudnessPanel::resized()
 {
     auto r = getLocalBounds().reduced (12, 10);
-    r.removeFromTop (20);
+    auto head = r.removeFromTop (20);
+    rmsButton.setBounds (head.removeFromRight (40).reduced (0, 1));
+    head.removeFromRight (4);
+    lufsButton.setBounds (head.removeFromRight (44).reduced (0, 1));
     grMeter.setBounds (r.removeFromRight (12).withTrimmedBottom (18));
 }
 
@@ -161,6 +188,7 @@ void LoudnessPanel::refresh (double dt)
 void LoudnessPanel::mouseDown (const juce::MouseEvent&)
 {
     processor.getEngine().getOutputLoudness().resetIntegrated();
+    processor.getEngine().getOutputRms().resetIntegrated();
     processor.getEngine().getOutputTruePeakMeter().requestMaxReset();
 }
 
@@ -184,9 +212,18 @@ void LoudnessPanel::paint (juce::Graphics& g)
         g.setFont (font (size));
         g.drawText (lufs <= -99.0f ? juce::String ("-inf") : juce::String (lufs, 1), line, juce::Justification::centredLeft);
     };
-    big (r, "SHORT-TERM  LUFS", e.getOutputLoudness().getShortTerm(), text, 34.0f);
-    big (r, "INTEGRATED  LUFS", e.getOutputLoudness().getIntegrated(), accent, 28.0f);
-    big (r, "MOMENTARY  LUFS", e.getOutputLoudness().getMomentary(), textDim, 20.0f);
+    if (showRms())
+    {
+        big (r, "SHORT-TERM  RMS dBFS", e.getOutputRms().getShortTerm(), text, 34.0f);
+        big (r, "INTEGRATED  RMS dBFS", e.getOutputRms().getIntegrated(), accent, 28.0f);
+        big (r, "MOMENTARY  RMS dBFS", e.getOutputRms().getMomentary(), textDim, 20.0f);
+    }
+    else
+    {
+        big (r, "SHORT-TERM  LUFS", e.getOutputLoudness().getShortTerm(), text, 34.0f);
+        big (r, "INTEGRATED  LUFS", e.getOutputLoudness().getIntegrated(), accent, 28.0f);
+        big (r, "MOMENTARY  LUFS", e.getOutputLoudness().getMomentary(), textDim, 20.0f);
+    }
 
     const float tp = juce::Decibels::gainToDecibels (e.getOutputTruePeakMeter().getMaxPeak(), -100.0f);
     auto line = r.removeFromTop (40);

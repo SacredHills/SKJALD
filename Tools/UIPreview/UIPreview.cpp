@@ -118,6 +118,14 @@ int main (int argc, char** argv)
     ed->setSize (826, 504);
     juce::MessageManager::getInstance()->runDispatchLoopUntil (100);
     save (*ed, out.getChildFile ("maximizer_small.png"), 1.0f);
+    if (auto* rmsBtn = findButton (ed.get(), "RMS"))
+    {
+        if (rmsBtn->onClick) rmsBtn->onClick();
+        std::printf ("rms property after click: %d (button visible %d showing %d)\n", (int) (bool) proc.getState().state.getProperty ("meterShowsRms", false), (int) rmsBtn->isVisible(), (int) rmsBtn->isShowing());
+        feed (proc, 40, counter);
+        ed->resized();
+        save (*ed, out.getChildFile ("maximizer_rms.png"), scale);
+    }
 
     ed.reset();
     proc.releaseResources();

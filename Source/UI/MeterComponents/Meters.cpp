@@ -114,6 +114,7 @@ void MeterStrip::mouseDown (const juce::MouseEvent& ev)
     auto& e = processor.getEngine();
     e.getOutputTruePeakMeter().requestMaxReset();
     e.getOutputLoudness().resetIntegrated();
+    e.getOutputRms().resetIntegrated();
     e.getInputPeakMeter().reset();
     e.getOutputPeakMeter().reset();
 }
@@ -157,9 +158,13 @@ void MeterStrip::paint (juce::Graphics& g)
     row (ra, "INPUT PEAK", formatDb (juce::Decibels::gainToDecibels (inPeakHold, -100.0f)) + " dB", text);
     row (ra, "OUTPUT PEAK", formatDb (juce::Decibels::gainToDecibels (outPeakHold, -100.0f)) + " dB", text);
     row (ra, "TRUE PEAK", formatDb (tp, 2) + " dBTP", tp > ceiling + 0.05f ? danger : text);
-    const float li = e.getOutputLoudness().getIntegrated(), ls = e.getOutputLoudness().getShortTerm();
-    row (ra, "INTEGRATED", (li <= -99.0f ? juce::String ("-inf") : juce::String (li, 1)) + " LUFS", accent);
-    row (ra, "SHORT-TERM", (ls <= -99.0f ? juce::String ("-inf") : juce::String (ls, 1)) + " LUFS", text);
+    // follows the LUFS / RMS switch of the Maximizer tab's loudness panel
+    const bool rms = (bool) processor.getState().state.getProperty ("meterShowsRms", false);
+    const float li = rms ? e.getOutputRms().getIntegrated() : e.getOutputLoudness().getIntegrated();
+    const float ls = rms ? e.getOutputRms().getShortTerm() : e.getOutputLoudness().getShortTerm();
+    const juce::String unit = rms ? " RMS" : " LUFS";
+    row (ra, "INTEGRATED", (li <= -99.0f ? juce::String ("-inf") : juce::String (li, 1)) + unit, accent);
+    row (ra, "SHORT-TERM", (ls <= -99.0f ? juce::String ("-inf") : juce::String (ls, 1)) + unit, text);
     g.setColour (textFaint);
     g.setFont (font (10.0f));
     g.drawText ("click values to reset", ra, juce::Justification::centredLeft);

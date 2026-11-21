@@ -3,6 +3,7 @@
 #include "Metering/LoudnessMeter.h"
 #include "Metering/TruePeakMeter.h"
 #include "Metering/KWeighting.h"
+#include "Metering/RmsMeter.h"
 
 using namespace skjald;
 using namespace skjald::test;
@@ -16,6 +17,15 @@ void feed (LoudnessMeter& m, const Buffer& b)
     {
         const float* ptrs[2] { b[0].data() + s, b.size() > 1 ? b[1].data() + s : nullptr };
         m.process (ptrs, (int) b.size(), std::min (1000, n - s));
+    }
+}
+
+void feed (RmsMeter& m, const Buffer& b, int from, int count)
+{
+    for (int s = from; s < from + count; s += 1000)
+    {
+        const float* ptrs[2] { b[0].data() + s, b[1].data() + s };
+        m.process (ptrs, 2, std::min (1000, from + count - s));
     }
 }
 
@@ -148,4 +158,25 @@ TEST_CASE ("TruePeak", "Meter agrees with independent reconstruction on noise an
     info ("meter %.3f dBTP, independent %.3f dBTP, sample peak %.3f dBFS", meter, indep, toDb (samplePeak (noise)));
     CHECK_NEAR (meter, indep, 0.15);
     CHECK (meter > toDb (samplePeak (noise)) + 1.0);
+}
+
+TEST_CASE ("Loudness", "RMS meter: sine reads amplitude - 3.01 dB, stereo equals mono, integrated ignores silence")
+{
+    const double fs = 48000.0;
+    RmsMeter m;
+    m.prepare (fs);
+    // 1 kHz sine at -10 dBFS peak for 5 s, then 3 s of silence
+    auto sig = concat ({ tone (5.0, -10.0), makeBuffer (2, (int) (3 * fs)) });
+    feed (m, sig, 0, (int) (5 * fs));
+    info ("sine -10 dBFS peak: momentary %.3f, short-term %.3f, integrated %.3f dBFS", m.getMomentary(), m.getShortTerm(), m.getIntegrated());
+    CHECK_NEAR (m.getMomentary(), -13.01, 0.02);
+    CHECK_NEAR (m.getShortTerm(), -13.01, 0.02);
+    CHECK_NEAR (m.getIntegrated(), -13.01, 0.02);
+    feed (m, sig, (int) (5 * fs), (int) (3 * fs));
+    CHECK (m.getMomentary() < -90.0f);                 // silence: momentary falls away
+    CHECK_NEAR (m.getIntegrated(), -13.01, 0.05);      // integrated keeps the value, silence is not averaged in
+    m.resetIntegrated();
+    const float* none[2] { sig[0].data(), sig[1].data() };
+    m.process (none, 2, 480);
+    CHECK (m.getIntegrated() <= -99.0f);
 }

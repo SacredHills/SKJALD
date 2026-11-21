@@ -43,8 +43,12 @@ public:
     void mouseDown (const juce::MouseEvent&) override;
 
 private:
+    bool showRms() const;
+    void setShowRms (bool);
+
     SkjaldAudioProcessor& processor;
     LevelMeter grMeter;
+    juce::TextButton lufsButton { "LUFS" }, rmsButton { "RMS" };
 };
 
 class MaximizerTab : public juce::Component

@@ -82,3 +82,7 @@ User reported it sounded like a compressor. The pre-limiter RMS leveler was the 
 ## ARC-style auto release, waveform display
 
 Auto Release default on with a slow base envelope (see TECHNICAL.md 3.x). Scrolling waveform behind the GR trace. 3-band limiter prototyped and rejected after measurement. 49 DSP tests, plugin host tests and pluginval 10 pass; true-peak matrix with Auto release passes (60 runs).
+
+## RMS meter
+
+RmsMeter plus LUFS/RMS switch on the loudness panel and meter column. 50 DSP tests.
