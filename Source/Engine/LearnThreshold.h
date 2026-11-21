@@ -12,7 +12,7 @@ namespace skjald
     Drive into the limiter is inputGain - threshold. Pure gain would give inputLufs + drive, but the
     limiter removes the part of the peaks that pokes over the ceiling and with it some loudness:
         over = max(0, peak + drive - ceiling)
-    and loss(over) is an empirical table (Modern mode, programme material). The equation
+    and loss(over) is an empirical table (Modern mode with the always-on soft clipper, programme material). The equation
     inputLufs + drive - loss = target is solved by bisection. Result is clamped to the parameter range. */
 inline float learnedThresholdDb (float inputLufs, float targetLufs, float inputGainDb,
                                  float inputPeakDb, float ceilingDb) noexcept
@@ -23,10 +23,11 @@ inline float learnedThresholdDb (float inputLufs, float targetLufs, float inputG
     auto outputLufs = [&] (float drive)
     {
         const float over = std::max (0.0f, inputPeakDb + drive - ceilingDb);
-        // (over, loss) measured on programme material, Modern mode; linear in between
-        static constexpr float table[][2] = { { 0.0f, 0.0f }, { 3.7f, 1.9f }, { 6.7f, 3.97f }, { 11.5f, 7.1f }, { 20.5f, 14.5f } };
+        // (over, loss) measured on programme material, Modern mode with the always-on soft clipper; linear in between
+        static constexpr float table[][2] = { { 0.0f, 0.0f }, { 1.5f, 0.31f }, { 3.5f, 1.18f }, { 6.7f, 3.04f }, { 9.5f, 4.50f },
+                                              { 11.5f, 5.69f }, { 14.0f, 7.79f }, { 17.0f, 10.91f }, { 20.5f, 14.32f } };
         constexpr int n = (int) (sizeof (table) / sizeof (table[0]));
-        float loss = table[n - 1][1] + 0.85f * (over - table[n - 1][0]);
+        float loss = table[n - 1][1] + 0.97f * (over - table[n - 1][0]);
         for (int i = 1; i < n; ++i)
             if (over <= table[i][0])
             {

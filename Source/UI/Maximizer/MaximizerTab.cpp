@@ -270,7 +270,6 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       bypass (p.getState(), params::maxBypass, "MAX BYPASS"),
       delta (p.getState(), params::delta, "DELTA", colours::analysis),
       adaptive (p.getState(), params::adaptiveRelease, "ADAPTIVE RELEASE"),
-      softClip (p.getState(), params::softClip, "SOFT CLIP"),
       autoGain (p.getState(), params::autoGain, "AUTO GAIN", colours::analysis),
       oversampling (p.getState(), params::oversampling, params::oversamplingNames()),
       linkMode (p.getState(), params::linkMode, params::linkModeNames()),
@@ -284,7 +283,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
              &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser,
              &thresholdLink, &learnButton, &targetSlider })
         addAndMakeVisible (c);
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &softClip, &autoGain, &linkMode })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain, &linkMode })
         addChildComponent (c);
 
     thresholdLink.setTooltip ("Link: moving the threshold moves the ceiling by the same amount");
@@ -336,7 +335,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
     advancedButton.onClick = [this]
     {
         advancedOpen = advancedButton.getToggleState();
-        for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &softClip, &autoGain, &linkMode })
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain, &linkMode })
             c->setVisible (advancedOpen);
         resized();
         repaint();
@@ -411,8 +410,6 @@ void MaximizerTab::resized()
         a.removeFromLeft (12);
         auto col1 = a.removeFromLeft (170);
         adaptive.setBounds (col1.removeFromTop (30));
-        col1.removeFromTop (14);
-        softClip.setBounds (col1.removeFromTop (30));
         a.removeFromLeft (12);
         auto col2 = a.removeFromLeft (170);
         autoGain.setBounds (col2.removeFromTop (30));

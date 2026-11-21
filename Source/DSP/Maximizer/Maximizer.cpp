@@ -169,12 +169,9 @@ CoreSettings Maximizer::buildCoreSettings() const noexcept
     s.adaptiveSlowFactor = modeCfg.adaptiveSlowFactor;
     s.adaptiveFastFactor = modeCfg.adaptiveFastFactor;
     s.link = clamp01 (params.stereoLink); // peak stage always follows the knob (Split only changes the leveler)
-    // Bounded clipping depth: built-in for Aggressive, or the Soft Clip switch (1.5x on top of a built-in stage)
-    float depth = 0.0f;
-    if (modeCfg.clipper.builtIn)
-        depth = modeCfg.clipper.depthDb * (params.softClip ? 1.5f : 1.0f);
-    else if (params.softClip)
-        depth = modeCfg.clipper.depthDb;
+    // Bounded soft clipping is always on: every mode shaves its few overshoots with its own depth
+    // (Transparent / Modern / Smooth / Punch 0.7-1 dB, Aggressive 0.25 dB). The old Soft Clip switch is gone.
+    const float depth = modeCfg.clipper.depthDb;
     s.clipDepthDb = depth;
     s.clipKnee = modeCfg.clipper.knee;
     s.transientDepthDb = modeCfg.transientDepthDb;

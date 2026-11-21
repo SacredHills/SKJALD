@@ -28,7 +28,7 @@
 - **Stereo Link:** 0 % independent, 100 % fully linked.
 - **Transient:** transient emphasis. More attack is kept by clipping only the tips of drum hits.
 - **TRUE PEAK, Oversampling 1x-16x:** inter-sample peak control and processing quality.
-- **ADVANCED:** lookahead, adaptive release, soft clip, auto gain (level-matched A/B), stereo link mode (Standard / Split).
+- **ADVANCED:** lookahead, adaptive release, auto gain (level-matched A/B), stereo link mode (Standard / Split).
 - **DELTA:** listen to what the limiter removes. **MAX BYPASS** bypasses the maximizer only.
 - **Gain-reduction history:** the fill shows peak gain reduction and the line shows the average.
 
@@ -37,5 +37,5 @@
 | Goal | Settings |
 |---|---|
 | Streaming master | Modern, ceiling −1 dBTP, lower the threshold until integrated loudness is near −14 LUFS |
-| Loud rock/metal | Punch or Aggressive, Transient 20-40 %, Soft Clip, 8x oversampling |
+| Loud rock/metal | Punch or Aggressive, Transient 20-40 %, 8x oversampling |
 | Acoustic / classical | Smooth or Transparent, threshold −1 to −3 dB, release 200-400 ms |

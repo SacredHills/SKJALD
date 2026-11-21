@@ -72,7 +72,7 @@ private:
     std::unique_ptr<APVTS::SliderAttachment> targetAttachment;
     bool learning = false;
     float lastThreshold = 0.0f;
-    ParamToggle autoRelease, truePeak, bypass, delta, adaptive, softClip, autoGain;
+    ParamToggle autoRelease, truePeak, bypass, delta, adaptive, autoGain;
     ChoiceSelector oversampling, linkMode;
     juce::TextButton advancedButton { "ADVANCED" };
     PresetBrowser presetBrowser;

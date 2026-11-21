@@ -171,11 +171,13 @@ TEST_CASE ("Maximizer", "Transient emphasis and Punch preserve drum attacks")
     // keeps 3.8 dB of the input's 6.6 dB (it kept 2.1 dB before), so the room left for Punch and
     // Transient Emphasis to add is smaller (they reach 5.4 and 5.0 dB).
     CHECK (tT < tIn);         // limiting reduces punch...
-    CHECK (tP > tT + 1.0);    // ...Punch keeps clearly more of it
-    CHECK (tE > tT + 1.0);    // ...and so does Transient Emphasis
+    // The always-on soft clipper keeps more of the attack in Transparent too (3.9 dB now), so the
+    // margin that Punch (4.6 dB) and Transient Emphasis (4.7 dB) add on top is about 0.8 dB.
+    CHECK (tP > tT + 0.5);    // ...Punch keeps clearly more of it
+    CHECK (tE > tT + 0.5);    // ...and so does Transient Emphasis
 }
 
-TEST_CASE ("Maximizer", "Soft clipping changes the result and keeps the ceiling")
+TEST_CASE ("Maximizer", "Soft clipping is always on, keeps the ceiling and ignores the old switch")
 {
     const double fs = 44100.0;
     const auto mix = syntheticMix ((int) (fs * 2), fs, 1.0, 4);
@@ -183,13 +185,13 @@ TEST_CASE ("Maximizer", "Soft clipping changes the result and keeps the ceiling"
     p.max.thresholdDb = -12.0f;
     p.max.truePeak = false;
     auto a = run (p, mix, fs);
-    p.max.softClip = true;
+    p.max.softClip = true; // legacy parameter, no longer has any effect
     auto b = run (p, mix, fs);
     Buffer d = a;
     for (size_t c = 0; c < 2; ++c)
         for (size_t i = 0; i < d[c].size(); ++i)
             d[c][i] -= b[c][i];
-    CHECK (toDb (rms (d) / rms (a)) > -50.0);
+    CHECK_MSG (rms (d) == 0.0, "legacy Soft Clip switch must not change the result");
     CHECK_LE (toDb (samplePeak (b)), -1.0 + 1.0e-4);
 }
 

@@ -1,5 +1,5 @@
 juce_add_plugin(SKJALD
-    COMPANY_NAME "SacredHills"
+    COMPANY_NAME "Sacred Hills Studio"
     COMPANY_WEBSITE "https://github.com/SacredHills/SKJALD"
     BUNDLE_ID "com.sacredhills.skjald"
     PLUGIN_MANUFACTURER_CODE Scrh

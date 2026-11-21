@@ -77,7 +77,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.adaptiveSlowFactor = 1.8f;
             c.adaptiveFastFactor = 0.4f;
             c.leveler.enabled = false;
-            c.clipper = { false, 1.0f, 0.8f };
+            c.clipper = { true, 1.0f, 0.8f };
             c.lfReleaseFactor = 3.0f;
             c.lfReleaseFloorMs = 90.0f;
             break;
@@ -89,7 +89,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.releaseMultiplier = 0.8f;
             c.autoReleaseMs = 100.0f;
             c.leveler = { false, 9.0f, 1.5f, 20.0f, 250.0f, 3.0f, 6.0f };
-            c.clipper = { false, 0.7f, 0.8f };
+            c.clipper = { true, 0.7f, 0.8f };
             c.lfReleaseFactor = 2.5f;
             c.lfReleaseFloorMs = 70.0f;
             break;
@@ -116,7 +116,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.autoReleaseMs = 80.0f;
             c.transientClip = 1.0f;
             c.leveler = { false, 10.0f, 1.7f, 45.0f, 120.0f, 3.5f, 6.0f };
-            c.clipper = { false, 0.7f, 0.85f };
+            c.clipper = { true, 0.7f, 0.85f };
             c.lfReleaseFactor = 3.0f;
             c.lfReleaseFloorMs = 80.0f;
             break;
@@ -131,7 +131,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.adaptiveSlowFactor = 2.0f;
             c.adaptiveFastFactor = 0.5f;
             c.leveler = { false, 6.0f, 1.25f, 50.0f, 500.0f, 1.5f, 8.0f };
-            c.clipper = { false, 1.2f, 0.85f };
+            c.clipper = { true, 1.2f, 0.85f };
             c.lfReleaseFactor = 3.5f;
             c.lfReleaseFloorMs = 110.0f;
             break;

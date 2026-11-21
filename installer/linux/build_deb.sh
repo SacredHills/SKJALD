@@ -15,7 +15,7 @@ Version: $VERSION
 Section: sound
 Priority: optional
 Architecture: amd64
-Maintainer: SacredHills <noreply@sacredhills.invalid>
+Maintainer: Sacred Hills Studio <noreply@sacredhills.invalid>
 Depends: libasound2, libfreetype6, libx11-6, libxext6, libxrandr2, libxinerama1, libxcursor1
 Description: SKJALD mastering EQ and maximizer (VST3)
  Eight-band equalizer and a true-peak maximizer with five limiting modes.

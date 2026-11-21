@@ -1,8 +1,15 @@
 #include "MainWindow.h"
 #include "../Plugin/PluginProcessor.h"
 
+#include "Assets/LogoData.h"
+
 namespace skjald::ui
 {
+namespace
+{
+    constexpr int kLogoSlotWidth = 150;
+}
+
 // ---- TabNavigation ----------------------------------------------------------------------
 TabNavigation::TabNavigation()
 {
@@ -81,7 +88,7 @@ void MainWindow::resized()
     headerArea = r.removeFromTop (56);
     {
         auto h = headerArea.reduced (16, 10);
-        h.removeFromLeft (150); // logo
+        h.removeFromLeft (kLogoSlotWidth); // logo
         tabs.setBounds (h.removeFromLeft (290));
         globalBypass.setBounds (h.removeFromRight (84).reduced (0, 2));
         h.removeFromRight (14);
@@ -110,25 +117,11 @@ void MainWindow::paint (juce::Graphics& g)
     g.setColour (outline);
     g.drawHorizontalLine (headerArea.getBottom() - 1, 0.0f, (float) getWidth());
 
-    // logo: a stylised shield mark + word mark (SKJALD = Norse poet)
-    auto logo = headerArea.reduced (16, 12).removeFromLeft (150).toFloat();
-    auto mark = logo.removeFromLeft (26.0f).withSizeKeepingCentre (22.0f, 26.0f);
-    juce::Path shield;
-    shield.startNewSubPath (mark.getX(), mark.getY());
-    shield.lineTo (mark.getRight(), mark.getY());
-    shield.lineTo (mark.getRight(), mark.getY() + mark.getHeight() * 0.55f);
-    shield.quadraticTo (mark.getRight(), mark.getBottom() - 4.0f, mark.getCentreX(), mark.getBottom());
-    shield.quadraticTo (mark.getX(), mark.getBottom() - 4.0f, mark.getX(), mark.getY() + mark.getHeight() * 0.55f);
-    shield.closeSubPath();
-    g.setColour (accent);
-    g.strokePath (shield, juce::PathStrokeType (2.0f));
-    g.drawLine (mark.getCentreX(), mark.getY() + 5.0f, mark.getCentreX(), mark.getBottom() - 6.0f, 2.0f);
-    g.drawLine (mark.getX() + 5.0f, mark.getY() + 10.0f, mark.getRight() - 5.0f, mark.getY() + 10.0f, 2.0f);
-
-    logo.removeFromLeft (8.0f);
-    g.setColour (text);
-    g.setFont (font (22.0f, true));
-    g.drawText ("SKJALD", logo, juce::Justification::centredLeft);
+    // logo (white artwork with alpha, embedded as a byte array)
+    static const juce::Image logoImage = juce::ImageCache::getFromMemory (assets::skjaldLogoPng, assets::skjaldLogoPngSize);
+    auto logoArea = headerArea.reduced (14, 6).removeFromLeft (kLogoSlotWidth).toFloat();
+    g.setOpacity (1.0f);
+    g.drawImage (logoImage, logoArea, juce::RectanglePlacement::xLeft | juce::RectanglePlacement::yMid | juce::RectanglePlacement::onlyReduceInSize, false);
 }
 
 void MainWindow::refresh (double dt, int frame)

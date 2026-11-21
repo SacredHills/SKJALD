@@ -13,7 +13,7 @@ Each release has an installer per system (CI builds are unsigned, see the notes 
 
 ## Manual install
 
-Copy `SKJALD.vst3` (a folder/bundle, copy it whole) into the VST3 folder of your system, then rescan plug-ins in your DAW. SKJALD appears as **SacredHills › SKJALD** in the *Fx / Mastering* category.
+Copy `SKJALD.vst3` (a folder/bundle, copy it whole) into the VST3 folder of your system, then rescan plug-ins in your DAW. SKJALD appears as **Sacred Hills Studio › SKJALD** in the *Fx / Mastering* category.
 
 | System | Folder (all users) | Folder (current user) |
 |---|---|---|

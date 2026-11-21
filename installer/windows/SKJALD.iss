@@ -13,7 +13,7 @@
 AppId={{6B7C3E52-4A1D-4C8E-9B70-5A4B0D1E2F31}
 AppName=SKJALD
 AppVersion={#AppVersion}
-AppPublisher=SacredHills
+AppPublisher=Sacred Hills Studio
 DefaultDirName={commoncf64}\VST3
 DisableDirPage=yes
 DisableProgramGroupPage=yes
@@ -36,4 +36,4 @@ Source: "{#SourceDir}\skjald_offline.exe"; DestDir: "{commonpf64}\SKJALD"; Flags
 Source: "{#SourceDir}\INSTALL.md"; DestDir: "{commonpf64}\SKJALD"; Flags: ignoreversion
 
 [Messages]
-FinishedLabel=SKJALD was installed to the VST3 folder. Rescan plug-ins in your DAW (SacredHills > SKJALD).
+FinishedLabel=SKJALD was installed to the VST3 folder. Rescan plug-ins in your DAW (Sacred Hills Studio > SKJALD).
