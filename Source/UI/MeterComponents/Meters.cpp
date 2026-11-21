@@ -167,7 +167,7 @@ void MeterStrip::paint (juce::Graphics& g)
     row (ra, "SHORT-TERM", (ls <= -99.0f ? juce::String ("-inf") : juce::String (ls, 1)) + unit, text);
     g.setColour (textFaint);
     g.setFont (font (10.0f));
-    g.drawText ("click values to reset", ra, juce::Justification::centredLeft);
+    g.drawText ("click to restart the whole-song reading", ra, juce::Justification::centredLeft);
 }
 
 } // namespace skjald::ui

@@ -214,14 +214,14 @@ void LoudnessPanel::paint (juce::Graphics& g)
     };
     if (showRms())
     {
-        big (r, "SHORT-TERM  RMS dBFS", e.getOutputRms().getShortTerm(), text, 34.0f);
-        big (r, "INTEGRATED  RMS dBFS", e.getOutputRms().getIntegrated(), accent, 28.0f);
+        big (r, "WHOLE SONG (INTEGRATED)  RMS dBFS", e.getOutputRms().getIntegrated(), accent, 34.0f);
+        big (r, "SHORT-TERM (3 s)  RMS dBFS", e.getOutputRms().getShortTerm(), text, 28.0f);
         big (r, "MOMENTARY  RMS dBFS", e.getOutputRms().getMomentary(), textDim, 20.0f);
     }
     else
     {
-        big (r, "SHORT-TERM  LUFS", e.getOutputLoudness().getShortTerm(), text, 34.0f);
-        big (r, "INTEGRATED  LUFS", e.getOutputLoudness().getIntegrated(), accent, 28.0f);
+        big (r, "WHOLE SONG (INTEGRATED)  LUFS", e.getOutputLoudness().getIntegrated(), accent, 34.0f);
+        big (r, "SHORT-TERM (3 s)  LUFS", e.getOutputLoudness().getShortTerm(), text, 28.0f);
         big (r, "MOMENTARY  LUFS", e.getOutputLoudness().getMomentary(), textDim, 20.0f);
     }
 
