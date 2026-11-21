@@ -1,3 +1,4 @@
+#include "../../Engine/LearnThreshold.h"
 #include "MaximizerTab.h"
 #include "../../Plugin/PluginProcessor.h"
 
@@ -193,6 +194,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       stereoLink (p.getState(), params::stereoLink, "Stereo Link", false, colours::analysis),
       transient (p.getState(), params::transient, "Transient", false, colours::analysis),
       lookahead (p.getState(), params::lookahead, "Lookahead", false, colours::analysis),
+      thresholdLink (p.getState(), params::thresholdLink, "LINK", colours::analysis),
       autoRelease (p.getState(), params::autoRelease, "AUTO"),
       truePeak (p.getState(), params::truePeak, "TRUE PEAK"),
       bypass (p.getState(), params::maxBypass, "MAX BYPASS"),
@@ -209,11 +211,53 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
                                     "Gentle, for acoustic material" });
     for (juce::Component* c : std::initializer_list<juce::Component*> {
              &grDisplay, &loudness, &modeSelector, &inputGain, &threshold, &ceiling, &character, &release, &stereoLink, &transient,
-             &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser })
+             &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser,
+             &thresholdLink, &learnButton, &targetSlider })
         addAndMakeVisible (c);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &softClip, &autoGain, &linkMode })
         addChildComponent (c);
 
+    thresholdLink.setTooltip ("Link: moving the threshold moves the ceiling by the same amount");
+    learnButton.setTooltip ("Learn Threshold: press, play the loudest part, press again. Sets the threshold for the target loudness");
+    targetSlider.setSliderStyle (juce::Slider::LinearBar);
+    targetSlider.setTextValueSuffix (" LUFS");
+    targetSlider.setTooltip ("Target loudness (LUFS) used by Learn");
+    targetAttachment = std::make_unique<APVTS::SliderAttachment> (p.getState(), params::targetLufs, targetSlider);
+
+    lastThreshold = (float) threshold.getSlider().getValue();
+    threshold.getSlider().onValueChange = [this]
+    {
+        const float now = (float) threshold.getSlider().getValue();
+        const float delta_ = now - lastThreshold;
+        lastThreshold = now;
+        // only for user edits: preset loads and automation must not drag the ceiling along
+        if (thresholdLink.getToggleState() && threshold.getSlider().isMouseOverOrDragging (true) && std::abs (delta_) > 1.0e-4f)
+        {
+            auto& cs = ceiling.getSlider();
+            cs.setValue (std::clamp (cs.getValue() + delta_, cs.getMinimum(), cs.getMaximum()), juce::sendNotificationSync);
+        }
+    };
+
+    learnButton.setClickingTogglesState (false);
+    learnButton.onClick = [this]
+    {
+        auto& e = processor.getEngine();
+        if (! learning)
+        {
+            e.getInputLoudness().resetIntegrated();
+            e.getInputPeakMeter().reset();
+            learning = true;
+            learnButton.setButtonText ("APPLY");
+            return;
+        }
+        learning = false;
+        learnButton.setButtonText ("LEARN");
+        const float t = learnedThresholdDb (e.getInputLoudness().getIntegrated(), (float) targetSlider.getValue(),
+                                            (float) inputGain.getSlider().getValue(),
+                                            juce::Decibels::gainToDecibels (e.getInputPeakMeter().getMaxPeak(), -100.0f),
+                                            (float) ceiling.getSlider().getValue());
+        threshold.getSlider().setValue (t, juce::sendNotificationSync);
+    };
     delta.setTooltip ("Delta: listen to what the maximizer removes (latency aligned)");
     autoGain.setTooltip ("Automatic gain compensation: level-matched monitoring for A/B (never exceeds the ceiling)");
     oversampling.setTooltip ("Oversampling factor of the limiter (higher = less aliasing, more CPU)");
@@ -247,6 +291,12 @@ void MaximizerTab::resized()
     {
         auto k = knobArea.reduced (12, 10);
         k.removeFromTop (18);
+        auto learnRow = k.removeFromBottom (22);
+        thresholdLink.setBounds (learnRow.removeFromLeft (56).reduced (0, 1));
+        learnRow.removeFromLeft (6);
+        learnButton.setBounds (learnRow.removeFromLeft (64).reduced (0, 1));
+        learnRow.removeFromLeft (6);
+        targetSlider.setBounds (learnRow.removeFromLeft (120).reduced (0, 1));
         auto right = k.removeFromRight (230);
         const int kw = k.getWidth() / 7;
         inputGain.setBounds (k.removeFromLeft (kw));

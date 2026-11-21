@@ -152,7 +152,10 @@ Reworked after listening tests showed audible distortion and a behaviour unlike 
 - Test recalibration: the transient-preservation tests now require a +1.0 dB margin, because the new detector separates transients more cleanly.
 - Measured THD+N at 6 dB drive: Modern -108 dB IMD, Aggressive -100 dB. At 12 dB drive Aggressive is about -45 dB (about 0.5 %), the deliberate limit of that mode. Previously it was -28 dB.
 
-Not implemented: Threshold-Ceiling Link, Learn Threshold / Target LUFS, and Ozone's multiband IRC IV / 5 spectral modes.
+- **Threshold-Ceiling Link (LINK).** UI-level: while on, a user edit of the threshold moves the ceiling by the same amount (clamped). Preset loads and automation do not drag the ceiling. Persisted as the `thresholdLink` parameter.
+- **Learn Threshold / Target LUFS.** LEARN starts measuring input integrated loudness and peak; APPLY sets the threshold for the Target Loudness (`targetLufs`, default -14). `Engine/LearnThreshold.h` solves input LUFS + drive - loss(over) = target, where the loss of loudness caused by limiting is an empirical table from the Modern mode. Tested on two programme levels at -16/-14/-12 LUFS targets: output within 0.1 LU. Targets that need more than 30 dB of drive clamp at -30 dB. Other modes will deviate somewhat since the table was fitted on Modern.
+
+Not implemented: Ozone's multiband / spectral IRC IV and IRC 5 modes. They are a different, much larger architecture (band-split limiting with per-band release), not an extension of the current single-band cores.
 
 ## 4. Loudness and metering
 

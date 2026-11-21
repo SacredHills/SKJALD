@@ -1,5 +1,6 @@
 #include "../TestFramework.h"
 #include "../TestSignals.h"
+#include "../../Source/Engine/LearnThreshold.h"
 
 #include <chrono>
 
@@ -219,6 +220,38 @@ TEST_CASE ("Maximizer", "Automatic gain compensation lowers loudness and never e
     CHECK (std::abs (agcLufs - inLufs) < 1.0);
     CHECK (agcLufs < plainLufs - 3.0);
     CHECK_LE (toDb (e2.getOutputTruePeakMeter().getMaxPeak()), -1.0 + 0.01);
+}
+
+TEST_CASE ("Maximizer", "Learn Threshold lands the output near the target loudness")
+{
+    const double fs = 48000.0;
+    for (double level : { 0.3, 0.12 })
+    {
+        const auto mix = syntheticMix ((int) (fs * 20), fs, level, 21);
+        for (float target : { -16.0f, -14.0f, -12.0f })
+        {
+            MasteringEngine probe;
+            auto p = base (LimiterMode::Modern);
+            p.max.thresholdDb = 0.0f;
+            run (p, mix, fs, &probe);
+            const float inLufs = probe.getInputLoudness().getIntegrated();
+            const float peak = toDb (probe.getInputPeakMeter().getMaxPeak());
+            p.max.thresholdDb = learnedThresholdDb (inLufs, target, 0.0f, peak, p.max.ceilingDb);
+            MasteringEngine e;
+            run (p, mix, fs, &e);
+            const float outLufs = e.getOutputLoudness().getIntegrated();
+            info ("level %.2f target %.1f: input %.2f (peak %.1f), threshold %.2f, output %.2f LUFS", level, target, inLufs, peak,
+                  p.max.thresholdDb, outLufs);
+            CHECK (std::abs (outLufs - target) < 1.0);
+        }
+    }
+}
+
+TEST_CASE ("Maximizer", "Learn Threshold clamps to the parameter range")
+{
+    CHECK_MSG (learnedThresholdDb (-25.0f, -3.0f, 0.0f, -10.0f, -1.0f) == -30.0f, "unreachable target must clamp to -30 dB");
+    CHECK_MSG (learnedThresholdDb (-10.0f, -30.0f, 0.0f, -3.0f, -1.0f) == 0.0f, "quieter target must clamp to 0 dB");
+    CHECK_MSG (learnedThresholdDb (-80.0f, -14.0f, 0.0f, -90.0f, -1.0f) == 0.0f, "nothing measured must leave unity drive");
 }
 
 TEST_CASE ("Maximizer", "Oversampling switch mid-stream: no gap, no click, ceiling kept")

@@ -70,3 +70,7 @@ The Linux CI job failed in the independent verification step: Aggressive mode on
 ## Maximizer distortion and Ozone-style rework
 
 See TECHNICAL.md section 3.x. Added Character parameter, rebuilt clipper, transient detector, leveler and release behaviour. 45 DSP tests, pluginval 10 and the 64-run true-peak matrix (modes x signals x Character 0/5/10, plus oversampling 1/2/8/16) all pass.
+
+## Threshold-Ceiling Link and Learn Threshold
+
+LEARN / APPLY with Target LUFS and the LINK toggle added to the Maximizer tab. 47 DSP tests, plugin host tests and pluginval 10 pass.

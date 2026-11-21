@@ -60,6 +60,13 @@ private:
     LoudnessPanel loudness;
     ChoiceSelector modeSelector;
     Knob inputGain, threshold, ceiling, character, release, stereoLink, transient, lookahead;
+    ParamToggle thresholdLink;
+    juce::TextButton learnButton { "LEARN" };
+    juce::Label targetLabel;
+    juce::Slider targetSlider;
+    std::unique_ptr<APVTS::SliderAttachment> targetAttachment;
+    bool learning = false;
+    float lastThreshold = 0.0f;
     ParamToggle autoRelease, truePeak, bypass, delta, adaptive, softClip, autoGain;
     ChoiceSelector oversampling, linkMode;
     juce::TextButton advancedButton { "ADVANCED" };
