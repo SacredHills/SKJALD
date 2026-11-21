@@ -74,3 +74,7 @@ See TECHNICAL.md section 3.x. Added Character parameter, rebuilt clipper, transi
 ## Threshold-Ceiling Link and Learn Threshold
 
 LEARN / APPLY with Target LUFS and the LINK toggle added to the Maximizer tab. 47 DSP tests, plugin host tests and pluginval 10 pass.
+
+## Leveler removed
+
+User reported it sounded like a compressor. The pre-limiter RMS leveler was the cause; disabled in all modes. Aggressive built-in clipper depth lowered to 0.25 dB (about -38 dB THD+N on a steady sine at the borderline drive).

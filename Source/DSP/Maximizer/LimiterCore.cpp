@@ -154,7 +154,7 @@ void LimiterCore::updateControl (const CoreSettings& s) noexcept
 
     // Bounded clipping is audible on sustained material and harmless on isolated peaks: shrink
     // the allowed overshoot when the demand for gain reduction is sustained.
-    const float clipTarget = (float) (1.0 - 0.9 * smoothStep (2.5, 7.0, demandAverageDb + (double) currentSustainedGr));
+    const float clipTarget = (float) (1.0 - 0.9 * smoothStep (1.0, 4.0, demandAverageDb + (double) currentSustainedGr));
     clipScale += (clipTarget - clipScale) * 0.05f;
 
     intervalMinEnv = intervalMinHeld = 1.0f;

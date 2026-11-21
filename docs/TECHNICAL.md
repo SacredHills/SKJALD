@@ -145,7 +145,7 @@ Reworked after listening tests showed audible distortion and a behaviour unlike 
 
 - **Clipper follows the gain.** The soft clipper now only works on the overshoot left after the limiter has acted. Its headroom (`clipDepthDb`) is added to the limiter target, so clipping depth is bounded. It is scaled down (up to 90 %) when the leveler plus the limiter are already reducing sustained gain, so steady bass is never clipped. The knee scales with the overshoot.
 - **Transient emphasis.** `TransientDetector` compares a fast follower against a peak-held envelope (8 ms attack, 80 ms release) with a 4 dB dead zone. Steady tones do not trigger it. Detected transients get up to 4.5 dB of extra clip headroom.
-- **Leveler.** The RMS detector uses two cascaded 25 ms one-poles, which removes the 2f ripple that modulated low frequencies. It now also emits a per-sample gain-reduction stream for the core.
+- **Leveler (disabled).** The slow RMS stage in front of the limiter was a real compressor (ratio 1.25 to 2:1, up to 4.5 dB) and was audible as compression. It is switched off in every mode; the code remains (`LevelerConfig.enabled`) but no mode uses it. Punch was re-tuned without it (full built-in transient emphasis, two-stage release). The clipper's sustained-gain gate now opens between 1 and 4 dB.
 - **Release.** A second release stage is always on. Its time constant grows with the bass share (150 Hz split), so low frequencies release slowly and transients quickly, like the IRC modes.
 - **Character (0 to 10, default 5).** Scales release time by 2^((c-5)*0.3) and the attack window by the square root of that. 5 is neutral. Faster is denser, slower is cleaner.
 - All control state updates run per sample, so output is invariant to block size.

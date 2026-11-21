@@ -88,7 +88,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.releaseStages = 1;
             c.releaseMultiplier = 0.8f;
             c.autoReleaseMs = 100.0f;
-            c.leveler = { true, 9.0f, 1.5f, 20.0f, 250.0f, 3.0f, 6.0f };
+            c.leveler = { false, 9.0f, 1.5f, 20.0f, 250.0f, 3.0f, 6.0f };
             c.clipper = { false, 0.7f, 0.8f };
             c.lfReleaseFactor = 2.5f;
             c.lfReleaseFloorMs = 70.0f;
@@ -102,23 +102,23 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.autoReleaseMs = 50.0f;
             c.adaptiveSlowFactor = 1.3f;
             c.adaptiveFastFactor = 0.3f;
-            c.leveler = { true, 11.0f, 2.0f, 10.0f, 150.0f, 4.5f, 6.0f };
-            c.clipper = { true, 0.5f, 0.8f };
+            c.leveler = { false, 11.0f, 2.0f, 10.0f, 150.0f, 4.5f, 6.0f };
+            c.clipper = { true, 0.25f, 0.85f };
             c.lfReleaseFactor = 2.0f;
             c.lfReleaseFloorMs = 60.0f;
             break;
 
         case LimiterMode::Punch:
             c.attackStages = 2;
-            c.attackFraction = 0.3f;
-            c.releaseStages = 1;
-            c.releaseMultiplier = 0.9f;
+            c.attackFraction = 0.6f;
+            c.releaseStages = 2;
+            c.releaseMultiplier = 1.0f;
             c.autoReleaseMs = 80.0f;
-            c.transientClip = 0.6f;
-            c.leveler = { true, 10.0f, 1.7f, 45.0f, 120.0f, 3.5f, 6.0f };
+            c.transientClip = 1.0f;
+            c.leveler = { false, 10.0f, 1.7f, 45.0f, 120.0f, 3.5f, 6.0f };
             c.clipper = { false, 0.7f, 0.85f };
-            c.lfReleaseFactor = 2.0f;
-            c.lfReleaseFloorMs = 50.0f;
+            c.lfReleaseFactor = 3.0f;
+            c.lfReleaseFloorMs = 80.0f;
             break;
 
         case LimiterMode::Smooth:
@@ -130,7 +130,7 @@ inline ModeConfig getModeConfig (LimiterMode mode) noexcept
             c.autoReleaseMs = 300.0f;
             c.adaptiveSlowFactor = 2.0f;
             c.adaptiveFastFactor = 0.5f;
-            c.leveler = { true, 6.0f, 1.25f, 50.0f, 500.0f, 1.5f, 8.0f };
+            c.leveler = { false, 6.0f, 1.25f, 50.0f, 500.0f, 1.5f, 8.0f };
             c.clipper = { false, 1.2f, 0.85f };
             c.lfReleaseFactor = 3.5f;
             c.lfReleaseFloorMs = 110.0f;
