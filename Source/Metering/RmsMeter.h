@@ -7,7 +7,8 @@
 
 namespace skjald
 {
-/** Plain RMS level meter (no K-weighting), in dBFS. A full-scale sine reads -3.01 dBFS.
+/** Plain RMS level meter (no K-weighting), AES17-referenced like the I/O meters of Ozone, Insight,
+    Cubase etc.: a full-scale sine reads 0 dB (mathematical RMS + 3.01 dB).
 
     Power is the mean of the channel mean-squares (mono and stereo read alike for identical
     channels). Like the loudness meter it works on 100 ms sub-blocks:
@@ -73,7 +74,8 @@ public:
     float getWindowMax() const noexcept { return windowMax.load (std::memory_order_relaxed); }
     float getIntegrated() const noexcept { return integrated.load (std::memory_order_relaxed); }
 
-    static float powerToDb (double p) noexcept { return p <= 1.0e-10 ? kSilenceDb : (float) (10.0 * std::log10 (p)); }
+    static constexpr float kAes17OffsetDb = 3.0103f;
+    static float powerToDb (double p) noexcept { return p <= 1.0e-10 ? kSilenceDb : (float) (10.0 * std::log10 (p)) + kAes17OffsetDb; }
 
 private:
     void finishSubBlock() noexcept

@@ -160,7 +160,7 @@ TEST_CASE ("TruePeak", "Meter agrees with independent reconstruction on noise an
     CHECK (meter > toDb (samplePeak (noise)) + 1.0);
 }
 
-TEST_CASE ("Loudness", "RMS meter: sine reads amplitude - 3.01 dB, stereo equals mono, integrated ignores silence")
+TEST_CASE ("Loudness", "RMS meter: full-scale sine reads 0 dB (AES17), stereo equals mono, integrated ignores silence")
 {
     const double fs = 48000.0;
     RmsMeter m;
@@ -169,16 +169,16 @@ TEST_CASE ("Loudness", "RMS meter: sine reads amplitude - 3.01 dB, stereo equals
     auto sig = concat ({ tone (5.0, -10.0), makeBuffer (2, (int) (3 * fs)) });
     feed (m, sig, 0, (int) (5 * fs));
     info ("sine -10 dBFS peak: momentary %.3f, short-term %.3f, integrated %.3f dBFS", m.getMomentary(), m.getShortTerm(), m.getIntegrated());
-    CHECK_NEAR (m.getMomentary(), -13.01, 0.02);
-    CHECK_NEAR (m.getShortTerm(), -13.01, 0.02);
-    CHECK_NEAR (m.getIntegrated(), -13.01, 0.02);
-    CHECK_NEAR (m.getWindow(), -13.01, 0.02);
-    CHECK_NEAR (m.getWindowMax(), -13.01, 0.02);
+    CHECK_NEAR (m.getMomentary(), -10.0, 0.02);
+    CHECK_NEAR (m.getShortTerm(), -10.0, 0.02);
+    CHECK_NEAR (m.getIntegrated(), -10.0, 0.02);
+    CHECK_NEAR (m.getWindow(), -10.0, 0.02);
+    CHECK_NEAR (m.getWindowMax(), -10.0, 0.02);
     feed (m, sig, (int) (5 * fs), (int) (3 * fs));
     CHECK (m.getWindow() < -90.0f);                    // 300 ms window follows the signal down...
-    CHECK_NEAR (m.getWindowMax(), -13.01, 0.02);       // ...while the max readout holds
+    CHECK_NEAR (m.getWindowMax(), -10.0, 0.02);       // ...while the max readout holds
     CHECK (m.getMomentary() < -90.0f);                 // silence: momentary falls away
-    CHECK_NEAR (m.getIntegrated(), -13.01, 0.05);      // integrated keeps the value, silence is not averaged in
+    CHECK_NEAR (m.getIntegrated(), -10.0, 0.05);      // integrated keeps the value, silence is not averaged in
     m.resetIntegrated();
     const float* none[2] { sig[0].data(), sig[1].data() };
     m.process (none, 2, 480);

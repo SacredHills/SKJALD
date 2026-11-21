@@ -149,7 +149,7 @@ LoudnessPanel::LoudnessPanel (SkjaldAudioProcessor& p) : processor (p)
         addAndMakeVisible (*b);
     }
     lufsButton.setTooltip ("Show loudness in LUFS (K-weighted, ITU-R BS.1770)");
-    rmsButton.setTooltip ("Show plain RMS level in dBFS (no weighting; a full-scale sine reads -3 dB)");
+    rmsButton.setTooltip ("Show RMS level (AES17 reference like Ozone: a full-scale sine reads 0 dB)");
     lufsButton.onClick = [this] { setShowRms (false); };
     rmsButton.onClick = [this] { setShowRms (true); };
     setShowRms (showRms());
@@ -214,8 +214,8 @@ void LoudnessPanel::paint (juce::Graphics& g)
     };
     if (showRms())
     {
-        big (r, "OUTPUT RMS (300 ms)  dBFS", e.getOutputRms().getWindow(), accent, 34.0f);
-        big (r, "INPUT RMS (300 ms)  dBFS", e.getInputRms().getWindow(), text, 28.0f);
+        big (r, "OUTPUT RMS (300 ms)  dB RMS", e.getOutputRms().getWindow(), accent, 34.0f);
+        big (r, "INPUT RMS (300 ms)  dB RMS", e.getInputRms().getWindow(), text, 28.0f);
         big (r, "OUTPUT RMS MAX  |  SONG AVG " + (e.getOutputRms().getIntegrated() <= -99.0f ? juce::String ("-inf") : juce::String (e.getOutputRms().getIntegrated(), 1)),
              e.getOutputRms().getWindowMax(), textDim, 20.0f);
     }
