@@ -157,6 +157,14 @@ CoreSettings Maximizer::buildCoreSettings() const noexcept
     s.kneeDb = modeCfg.kneeDb;
     s.releaseStages = modeCfg.releaseStages;
     s.releaseMs = std::clamp ((params.autoRelease ? modeCfg.autoReleaseMs : params.releaseMs) * speed, 1.0f, 5000.0f);
+    if (params.autoRelease)
+    {
+        // ARC-style auto release: a fast envelope for peaks above the sustained reduction and a slow base
+        // envelope that follows the average reduction (see CoreSettings)
+        s.releaseMs = std::clamp (modeCfg.autoReleaseMs * kArcFastShare * speed, 2.0f, 5000.0f);
+        s.arcBaseAttackMs = kArcBaseAttackMs * std::sqrt (speed);
+        s.arcBaseReleaseMs = kArcBaseReleaseMs * modeCfg.releaseMultiplier * speed;
+    }
     s.adaptiveRelease = params.adaptiveRelease || params.autoRelease;
     s.adaptiveSlowFactor = modeCfg.adaptiveSlowFactor;
     s.adaptiveFastFactor = modeCfg.adaptiveFastFactor;

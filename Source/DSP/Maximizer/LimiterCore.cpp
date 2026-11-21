@@ -66,7 +66,7 @@ void LimiterCore::reset() noexcept
         if (useDetector)
             c.detector.reset();
         c.samplePeakAlign.reset();
-        c.release1 = c.release2 = c.lastHeld = 1.0f;
+        c.release1 = c.release2 = c.lastHeld = c.arcBase = 1.0f;
     }
     ceilingAlign.reset (1.0f);
     headroomToDetector.reset (1.0f);
@@ -151,6 +151,12 @@ void LimiterCore::updateControl (const CoreSettings& s) noexcept
     const double tau2 = s.releaseStages >= 2 ? tau * 0.6 : lf * tau * 0.6;
     releaseCoeff1 = (float) onePoleCoeff (tau1, osRate);
     releaseCoeff2 = (float) onePoleCoeff (tau2, osRate);
+    arcActive = s.arcBaseReleaseMs > 0.0f;
+    if (arcActive)
+    {
+        arcAttackCoeff = (float) onePoleCoeff (std::max (1.0f, s.arcBaseAttackMs) * 0.001, osRate);
+        arcReleaseCoeff = (float) onePoleCoeff (s.arcBaseReleaseMs * 0.001, osRate);
+    }
 
     // Bounded clipping is audible on sustained material and harmless on isolated peaks: shrink
     // the allowed overshoot when the demand for gain reduction is sustained.
@@ -321,7 +327,10 @@ void LimiterCore::process (float* const* io, int numChannels, int numSamples, co
             // Each stage stays <= its input, so the envelope never exceeds the held minimum.
             st.release1 = held < st.release1 ? held : held + (st.release1 - held) * releaseCoeff1;
             st.release2 = st.release1 < st.release2 ? st.release1 : st.release1 + (st.release2 - st.release1) * releaseCoeff2;
-            const float env = st.release2;
+            // slow base envelope (smoothed towards the held gain both ways, so it tracks the average
+            // reduction); the applied envelope is never above the fast release, so the ceiling holds
+            st.arcBase = held + (st.arcBase - held) * (held < st.arcBase ? arcAttackCoeff : arcReleaseCoeff);
+            const float env = arcActive ? std::min (st.release2, st.arcBase) : st.release2;
             intervalMinEnv = std::min (intervalMinEnv, env);
 
             if (boxesMoving)

@@ -37,6 +37,14 @@ struct CoreSettings
     // bass, the release is stretched and floored so the gain cannot follow the bass waveform.
     float lfReleaseFactor = 2.5f;
     float lfReleaseFloorMs = 60.0f;
+
+    // Auto release (ARC style, after Waves): besides the fast release envelope there is a slow "base"
+    // envelope that follows the average gain reduction (the RMS-like, sustained part). The gain is the
+    // lower of the two, so a peak that goes beyond the sustained reduction recovers quickly *down to
+    // the base*, while the base itself moves slowly. Sparse peaks leave the base near 0 dB (fast, clean
+    // recovery); dense material keeps a steady base (no pumping). 0 disables the base envelope.
+    float arcBaseAttackMs = 0.0f;
+    float arcBaseReleaseMs = 0.0f;
 };
 
 /** Feed-forward lookahead peak limiter that runs at the oversampled rate.
@@ -110,7 +118,7 @@ private:
         TruePeakDetector detector;  // only used when the oversampling factor is < 8
         DelayLine<float> samplePeakAlign;
         std::vector<float> peaks;
-        float release1 = 1.0f, release2 = 1.0f, lastHeld = 1.0f;
+        float release1 = 1.0f, release2 = 1.0f, lastHeld = 1.0f, arcBase = 1.0f;
     };
     std::array<Channel, kMaxChannels> ch;
     int ringSize = 1;
@@ -128,7 +136,8 @@ private:
     float clipScale = 1.0f;               // shrinks the clip depth under sustained heavy limiting
 
     // control-rate state
-    float releaseCoeff1 = 0.999f, releaseCoeff2 = 0.999f;
+    float releaseCoeff1 = 0.999f, releaseCoeff2 = 0.999f, arcAttackCoeff = 0.0f, arcReleaseCoeff = 0.0f;
+    bool arcActive = false;
     float intervalMinEnv = 1.0f, intervalMinHeld = 1.0f;
     double demandAverageDb = 0.0, avgCoeff = 0.0;
 

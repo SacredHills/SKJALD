@@ -77,6 +77,39 @@ TEST_CASE ("Maximizer", "Release time controls recovery")
     CHECK (rs > 4.0 * rf);
 }
 
+TEST_CASE ("Maximizer", "Auto release (ARC): isolated peaks recover fast, ceiling holds")
+{
+    const double fs = 48000.0;
+    auto autoP = base();
+    autoP.max.autoRelease = true;
+    const double ra = recoveryMs (autoP, fs);
+    auto slow = base();
+    slow.max.releaseMs = 400.0f;
+    const double rs = recoveryMs (slow, fs);
+    info ("isolated burst recovery: auto %.1f ms, manual 400 ms release %.1f ms", ra, rs);
+    CHECK (ra < 150.0);
+    CHECK (ra < 0.25 * rs);
+}
+
+TEST_CASE ("Maximizer", "Auto release (ARC): dense material is louder than a slow manual release and never over the ceiling")
+{
+    const double fs = 44100.0;
+    const auto mix = syntheticMix ((int) (fs * 10), fs, 1.0, 21);
+    auto autoP = base (LimiterMode::Modern);
+    autoP.max.thresholdDb = -10.0f;
+    autoP.max.autoRelease = true;
+    auto slow = autoP;
+    slow.max.autoRelease = false;
+    slow.max.releaseMs = 250.0f;
+    MasteringEngine ea, es;
+    run (autoP, mix, fs, &ea);
+    run (slow, mix, fs, &es);
+    const double la = ea.getOutputLoudness().getIntegrated(), ls = es.getOutputLoudness().getIntegrated();
+    info ("integrated loudness: auto %.2f LUFS, manual 250 ms %.2f LUFS", la, ls);
+    CHECK (la > ls);
+    CHECK_LE (toDb (ea.getOutputTruePeakMeter().getMaxPeak()), -1.0 + 0.01);
+}
+
 TEST_CASE ("Maximizer", "Adaptive release: short peaks recover faster than the manual setting")
 {
     const double fs = 48000.0;

@@ -118,7 +118,7 @@ Layout createLayout()
                                                 Attributes().withLabel ("dBTP").withStringFromValueFunction ([] (float v, int) { return juce::String (v, 2) + " dB"; })));
     mx->addChild (std::make_unique<FloatParam> (id (release), "Release", logRange (5.0f, 1000.0f), 100.0f,
                                                 Attributes().withLabel ("ms").withStringFromValueFunction (formatMs)));
-    mx->addChild (std::make_unique<BoolParam> (id (autoRelease), "Auto Release", false));
+    mx->addChild (std::make_unique<BoolParam> (id (autoRelease), "Auto Release", true));
     mx->addChild (std::make_unique<FloatParam> (id (character), "Character", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
                                                 Attributes().withStringFromValueFunction ([] (float v, int) { return juce::String (v, 1); })));
     mx->addChild (std::make_unique<BoolParam> (id (thresholdLink), "Threshold-Ceiling Link", false));

@@ -27,6 +27,8 @@ struct EngineTap
     virtual void pushPreEQ (const float* const* channels, int numChannels, int numSamples) noexcept { (void) channels; (void) numChannels; (void) numSamples; }
     virtual void pushPostEQ (const float* const* channels, int numChannels, int numSamples) noexcept { (void) channels; (void) numChannels; (void) numSamples; }
     virtual void pushGainReduction (float peakDb, float averageDb) noexcept { (void) peakDb; (void) averageDb; }
+    /** Sample peaks (linear, over all channels) of the chunk that entered and left the engine. */
+    virtual void pushLevels (float inputPeak, float outputPeak) noexcept { (void) inputPeak; (void) outputPeak; }
 };
 
 /** Complete processing chain: INPUT -> EQUALIZER -> MAXIMIZER -> OUTPUT, plus metering.

@@ -61,6 +61,11 @@ void MasteringEngine::process (float* const* io, int numChannels, int numSamples
         const float* chunkConst[kMaxChannels] { chunk[0], chunk[1] };
 
         inputPeak.process (chunkConst, numChannels, n);
+        float inPk = 0.0f;
+        if (tap != nullptr)
+            for (int c = 0; c < numChannels; ++c)
+                for (int i = 0; i < n; ++i)
+                    inPk = std::max (inPk, std::abs (chunk[c][i]));
         inputLoudness.process (chunkConst, numChannels, n);
         for (int c = 0; c < numChannels; ++c)
             std::copy (chunk[c], chunk[c] + n, inputCopy[(size_t) c].begin());
@@ -99,7 +104,14 @@ void MasteringEngine::process (float* const* io, int numChannels, int numSamples
         grAvgDb.store (grA, std::memory_order_relaxed);
         agcDb.store (maximizer.getAutoGainDb(), std::memory_order_relaxed);
         if (tap != nullptr)
+        {
+            float outPk = 0.0f;
+            for (int c = 0; c < numChannels; ++c)
+                for (int i = 0; i < n; ++i)
+                    outPk = std::max (outPk, std::abs (chunk[c][i]));
+            tap->pushLevels (inPk, outPk);
             tap->pushGainReduction (grP, grA);
+        }
     }
 }
 

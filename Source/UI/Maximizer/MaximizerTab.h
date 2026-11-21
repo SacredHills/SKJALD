@@ -21,12 +21,13 @@ public:
 private:
     static constexpr int kColumns = 720;
     static constexpr double kHistorySeconds = 6.0;
-    struct Column { float peak = 0.0f, avg = 0.0f; };
+    struct Column { float peak = 0.0f, avg = 0.0f, inPeak = 0.0f, outPeak = 0.0f; };
 
     SkjaldAudioProcessor& processor;
     std::array<Column, kColumns> columns {};
     int writePos = 0;
     double accumulated = 0.0, avgSum = 0.0;
+    float colIn = 0.0f, colOut = 0.0f;
     float colPeak = 0.0f, currentPeak = 0.0f, displayPeak = 0.0f, rangeDb = 6.0f;
     std::array<GainReductionPoint, 4096> scratch {};
 };

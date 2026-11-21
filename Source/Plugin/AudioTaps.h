@@ -55,6 +55,7 @@ struct GainReductionPoint
     float peakDb = 0.0f;
     float averageDb = 0.0f;
     int numSamples = 0;
+    float inputPeak = 0.0f, outputPeak = 0.0f; // linear sample peaks of the same block (waveform display)
 };
 
 class GainReductionFifo
@@ -99,9 +100,15 @@ public:
             post.pushMono (ch, numCh, n);
     }
 
+    void pushLevels (float inputPeak, float outputPeak) noexcept override
+    {
+        lastIn = inputPeak;
+        lastOut = outputPeak;
+    }
+
     void pushGainReduction (float peakDb, float avgDb) noexcept override
     {
-        gr.push ({ peakDb, avgDb, lastBlock });
+        gr.push ({ peakDb, avgDb, lastBlock, lastIn, lastOut });
     }
 
     SampleFifo pre, post;
@@ -110,6 +117,7 @@ public:
 
 private:
     int lastBlock = 0;
+    float lastIn = 0.0f, lastOut = 0.0f;
 };
 
 } // namespace skjald

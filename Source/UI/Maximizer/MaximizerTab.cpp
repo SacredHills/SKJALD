@@ -21,16 +21,19 @@ void GRHistoryDisplay::refresh (double dt)
         {
             const auto& pt = scratch[(size_t) i];
             colPeak = juce::jmax (colPeak, pt.peakDb);
+            colIn = juce::jmax (colIn, pt.inputPeak);
+            colOut = juce::jmax (colOut, pt.outputPeak);
             avgSum += (double) pt.averageDb * pt.numSamples;
             accumulated += pt.numSamples;
             currentPeak = pt.peakDb;
             while (accumulated >= samplesPerColumn)
             {
-                columns[(size_t) writePos] = { colPeak, (float) (avgSum / juce::jmax (1.0, accumulated)) };
+                columns[(size_t) writePos] = { colPeak, (float) (avgSum / juce::jmax (1.0, accumulated)), colIn, colOut };
                 writePos = (writePos + 1) % kColumns;
                 accumulated -= samplesPerColumn;
                 avgSum = 0.0;
                 colPeak = 0.0f;
+                colIn = colOut = 0.0f;
             }
         }
     }
@@ -73,6 +76,35 @@ void GRHistoryDisplay::paint (juce::Graphics& g)
         g.drawVerticalLine ((int) x, area.getY(), area.getBottom());
     }
 
+    // scrolling waveform behind the gain-reduction trace (as in iZotope's Maximizer): the signal going in
+    // (grey) and coming out (accent), as mirrored peak envelopes, 0 dBFS = full height
+    {
+        const float mid = area.getCentreY(), half = area.getHeight() * 0.5f;
+        auto envelope = [&] (bool output)
+        {
+            juce::Path p;
+            p.startNewSubPath (area.getX(), mid);
+            for (int i = 0; i < kColumns; ++i)
+            {
+                const auto& c = columns[(size_t) ((writePos + i) % kColumns)];
+                const float x = area.getX() + area.getWidth() * (float) i / (float) (kColumns - 1);
+                p.lineTo (x, mid - half * juce::jlimit (0.0f, 1.0f, output ? c.outPeak : c.inPeak));
+            }
+            for (int i = kColumns - 1; i >= 0; --i)
+            {
+                const auto& c = columns[(size_t) ((writePos + i) % kColumns)];
+                const float x = area.getX() + area.getWidth() * (float) i / (float) (kColumns - 1);
+                p.lineTo (x, mid + half * juce::jlimit (0.0f, 1.0f, output ? c.outPeak : c.inPeak));
+            }
+            p.closeSubPath();
+            return p;
+        };
+        g.setColour (textFaint.withAlpha (0.30f));
+        g.fillPath (envelope (false));
+        g.setColour (accent.withAlpha (0.45f));
+        g.fillPath (envelope (true));
+    }
+
     // history (newest on the right)
     juce::Path peakPath, avgPath;
     peakPath.startNewSubPath (area.getX(), area.getY());
@@ -103,7 +135,7 @@ void GRHistoryDisplay::paint (juce::Graphics& g)
     g.drawText ((displayPeak > 0.05f ? "-" : "") + juce::String (displayPeak, 1) + " dB", ro, juce::Justification::centredRight);
     g.setFont (font (10.5f, true));
     g.setColour (textFaint);
-    g.drawText ("PEAK (FILL)  /  AVERAGE (LINE)", getLocalBounds().reduced (16, 12).removeFromBottom (16), juce::Justification::centredLeft);
+    g.drawText ("WAVEFORM IN (GREY) / OUT (AMBER)  -  GR PEAK (FILL) / AVERAGE (LINE)", getLocalBounds().reduced (16, 12).removeFromBottom (16), juce::Justification::centredLeft);
 }
 
 // ---- LoudnessPanel ----------------------------------------------------------------------
@@ -220,7 +252,6 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
     thresholdLink.setTooltip ("Link: moving the threshold moves the ceiling by the same amount");
     learnButton.setTooltip ("Learn Threshold: press, play the loudest part, press again. Sets the threshold for the target loudness");
     targetSlider.setSliderStyle (juce::Slider::LinearBar);
-    targetSlider.setTextValueSuffix (" LUFS");
     targetSlider.setTooltip ("Target loudness (LUFS) used by Learn");
     targetAttachment = std::make_unique<APVTS::SliderAttachment> (p.getState(), params::targetLufs, targetSlider);
 
@@ -380,6 +411,8 @@ void MaximizerTab::refresh (double dt)
 {
     grDisplay.refresh (dt);
     loudness.refresh (dt);
+    // with Auto Release the time is chosen by the limiter: dim the manual knob
+    release.setAlpha (processor.getState().getRawParameterValue (params::autoRelease)->load() > 0.5f ? 0.35f : 1.0f);
     presetBrowser.refresh();
 }
 

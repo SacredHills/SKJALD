@@ -56,6 +56,7 @@ public:
     static constexpr int kNumPaths = 5;
     static constexpr double kMaxLookaheadMs = 10.0;
     static constexpr float kTruePeakCoreMarginDb = 0.03f;
+    static constexpr float kArcFastShare = 0.4f, kArcBaseAttackMs = 60.0f, kArcBaseReleaseMs = 300.0f;
     static constexpr float kTruePeakGuardMarginDb = 0.01f;
 
     void prepare (double sampleRate, int maxBlockSize);
