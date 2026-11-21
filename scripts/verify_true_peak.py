@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Independent true-peak and loudness check of a WAV file (does not share any code with
-SKJALD). True peak is measured two ways:
+SKJALD). True peak is measured three ways:
 
-  - "bs1770": 4x polyphase oversampling with a 48-tap-per-phase Kaiser FIR (in the spirit of
-    ITU-R BS.1770-4 Annex 2, but more accurate than its example filter), and
-  - "ideal": 16x band-limited (FFT/zero-padding) reconstruction of the whole file.
+  - "itu":   the ITU-R BS.1770-4 Annex 2 reference meter (4x, 48-tap polyphase filter with the
+             coefficients published in the Recommendation). This is the compliance measurement.
+  - "ideal": 16x band-limited reconstruction of the whole file, computed by FFT on a
+             zero-padded copy (linear, not circular: without padding the end of the file wraps
+             onto its start and the step creates a false over).
+  - "poly":  4x scipy Kaiser polyphase FIR with its cutoff exactly at Nyquist (informational
+             only: images of content just below Nyquist leak through it, so it over-reads
+             full-band material relative to the ideal reconstruction).
 
 Usage: python3 verify_true_peak.py <file.wav> [--ceiling dB] [--tolerance dB] [--ideal-tolerance dB]
-Exit code 1 if a ceiling is given and the measured true peak exceeds it by more than the
-tolerance (BS.1770-style measurement) or the ideal tolerance (ideal reconstruction).
+Exit code 1 if a ceiling is given and the ITU true peak exceeds it by more than the tolerance,
+or the ideal reconstruction exceeds it by more than the ideal tolerance.
 """
 import argparse
 import sys
@@ -34,13 +39,41 @@ def tp_polyphase(x, factor=4, taps_per_phase=48):
     return peak
 
 
-def tp_ideal(x, factor=16):
+# ITU-R BS.1770-4 Annex 2, Table 1: 4x oversampling interpolation filter, one row per phase
+ITU_PHASES = np.array([
+    [0.0017089843750, 0.0109863281250, -0.0196533203125, 0.0332031250000, -0.0594482421875, 0.1373291015625,
+     0.9721679687500, -0.1022949218750, 0.0476074218750, -0.0266113281250, 0.0148925781250, -0.0083007812500],
+    [-0.0291748046875, 0.0292968750000, -0.0517578125000, 0.0891113281250, -0.1665039062500, 0.4650878906250,
+     0.7797851562500, -0.2003173828125, 0.1015625000000, -0.0582275390625, 0.0330810546875, -0.0189208984375],
+    [-0.0189208984375, 0.0330810546875, -0.0582275390625, 0.1015625000000, -0.2003173828125, 0.7797851562500,
+     0.4650878906250, -0.1665039062500, 0.0891113281250, -0.0517578125000, 0.0292968750000, -0.0291748046875],
+    [-0.0083007812500, 0.0148925781250, -0.0266113281250, 0.0476074218750, -0.1022949218750, 0.9721679687500,
+     0.1373291015625, -0.0594482421875, 0.0332031250000, -0.0196533203125, 0.0109863281250, 0.0017089843750],
+])
+
+
+def tp_itu(x):
+    peak = 0.0
+    for ch in x.T:
+        for ph in ITU_PHASES:
+            peak = max(peak, np.max(np.abs(np.convolve(ch, ph))))
+    return peak
+
+
+def tp_ideal(x, factor=16, pad=16384):
     peak = 0.0
     for ch in x.T:
         n = len(ch)
-        spec = np.fft.rfft(ch)
-        y = np.fft.irfft(spec, n * factor) * factor
-        peak = max(peak, np.max(np.abs(y)))
+        padded = np.concatenate([np.zeros(pad), ch, np.zeros(pad)])
+        y = np.abs(np.fft.irfft(np.fft.rfft(padded), len(padded) * factor) * factor)
+        # parabolic refinement of every local maximum (16x alone can miss a crest near
+        # Nyquist by ~0.03 dB)
+        a, b, c = y[:-2], y[1:-1], y[2:]
+        den = a - 2 * b + c
+        m = (b >= a) & (b >= c) & (den < 0)
+        off = np.where(m, 0.5 * (a - c) / np.where(m, den, -1.0), 0.0)
+        v = np.where(m, b - 0.25 * (a - c) * off, b)
+        peak = max(peak, np.max(v), np.max(y))
     return peak
 
 
@@ -87,7 +120,7 @@ def main():
     ap.add_argument("wav")
     ap.add_argument("--ceiling", type=float, default=None)
     ap.add_argument("--tolerance", type=float, default=0.02)
-    ap.add_argument("--ideal-tolerance", type=float, default=0.15)
+    ap.add_argument("--ideal-tolerance", type=float, default=0.05)
     args = ap.parse_args()
 
     fs, x = wavfile.read(args.wav)
@@ -96,16 +129,17 @@ def main():
         x = x[:, None]
 
     sp = db(np.max(np.abs(x)))
-    tp4 = db(tp_polyphase(x))
+    tpu = db(tp_itu(x))
     tpi = db(tp_ideal(x))
+    tp4 = db(tp_polyphase(x))
     lufs = integrated_lufs(x, fs)
-    print(f"{args.wav}: sample peak {sp:.3f} dBFS, true peak (4x poly) {tp4:.3f} dBTP, "
-          f"true peak (16x ideal) {tpi:.3f} dBTP, integrated {lufs:.2f} LUFS")
+    print(f"{args.wav}: sample peak {sp:.3f} dBFS, true peak ITU {tpu:.3f} dBTP, ideal {tpi:.3f} dBTP, "
+          f"scipy-4x {tp4:.3f} dBTP (info), integrated {lufs:.2f} LUFS")
 
     if args.ceiling is not None:
-        ok = tp4 <= args.ceiling + args.tolerance and tpi <= args.ceiling + args.ideal_tolerance
+        ok = tpu <= args.ceiling + args.tolerance and tpi <= args.ceiling + args.ideal_tolerance
         print(f"ceiling {args.ceiling:.2f} dBTP: {'PASS' if ok else 'FAIL'} "
-              f"(excess {tp4 - args.ceiling:+.3f} dB / {tpi - args.ceiling:+.3f} dB)")
+              f"(excess ITU {tpu - args.ceiling:+.3f} dB, ideal {tpi - args.ceiling:+.3f} dB)")
         return 0 if ok else 1
     return 0
 

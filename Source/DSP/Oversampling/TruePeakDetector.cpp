@@ -5,8 +5,9 @@
 
 namespace skjald
 {
-void TruePeakDetector::prepare (int factor, double attenuationDb, double edge)
+void TruePeakDetector::prepare (int factor, double attenuationDb, double edge, bool refinePeaks)
 {
+    refine = refinePeaks;
     stages = factor >= 8 ? 3 : (factor >= 4 ? 2 : 1);
 
     // The first stage's transition band is centred on fs/2: (1 - edge) .. edge
@@ -22,7 +23,7 @@ void TruePeakDetector::prepare (int factor, double attenuationDb, double edge)
     }
     const int F = 1 << stages;
     padTop = (int) ((F - (totalTop % F)) % F);
-    latency = (int) ((totalTop + padTop) / F);
+    latency = (int) ((totalTop + padTop) / F) + (refine ? 1 : 0);
 
     for (int s = 0; s <= stages; ++s)
         work[(size_t) s].assign ((size_t) (kMaxBlock << s), 0.0f);
@@ -35,6 +36,7 @@ void TruePeakDetector::reset() noexcept
     for (auto& f : filters)
         f.reset();
     pad.reset();
+    prevPrevTop = prevTop = pendingPeak = 0.0f;
 }
 
 void TruePeakDetector::process (const float* in, float* peaks, int n) noexcept
@@ -52,13 +54,53 @@ void TruePeakDetector::process (const float* in, float* peaks, int n) noexcept
             for (int i = 0; i < len * F; ++i)
                 top[i] = pad.process (top[i], padTop);
 
+        if (! refine)
+        {
+            for (int i = 0; i < len; ++i)
+            {
+                float m = 0.0f;
+                const float* p = top + i * F;
+                for (int k = 0; k < F; ++k)
+                    m = std::max (m, std::abs (p[k]));
+                peaks[start + i] = m;
+            }
+            continue;
+        }
+
+        // Refined: the oversampled point y[t-1] is evaluated when y[t] arrives. A point that is a
+        // local maximum of |y| gets the parabolic vertex through (y[t-2], y[t-1], y[t]). Points of
+        // sample period i are complete once the first point of period i + 1 is known, hence the
+        // extra sample of latency: the value of period i is emitted with period i + 1.
         for (int i = 0; i < len; ++i)
         {
-            float m = 0.0f;
             const float* p = top + i * F;
+            float m = pendingPeak; // the previous period's maximum still lacks its last point
+            float cur = 0.0f;
             for (int k = 0; k < F; ++k)
-                m = std::max (m, std::abs (p[k]));
+            {
+                const float a = prevPrevTop, b = prevTop, c = p[k];
+                float v = std::abs (b);
+                const float s = b >= 0.0f ? 1.0f : -1.0f;
+                const float sa = s * a, sb = s * b, sc = s * c;
+                if (sb >= sa && sb >= sc)
+                {
+                    const float den = sa - 2.0f * sb + sc;
+                    if (den < 0.0f)
+                    {
+                        const float off = 0.5f * (sa - sc) / den; // within +-0.5 for a local max
+                        v = sb - 0.25f * (sa - sc) * off;
+                    }
+                }
+                // point b belongs to the previous period when k == 0, to this period otherwise
+                if (k == 0)
+                    m = std::max (m, v);
+                else
+                    cur = std::max (cur, v);
+                prevPrevTop = prevTop;
+                prevTop = c;
+            }
             peaks[start + i] = m;
+            pendingPeak = cur;
         }
     }
 }

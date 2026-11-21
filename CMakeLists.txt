@@ -27,6 +27,7 @@ set(SKJALD_JUCE_TAG "8.0.10" CACHE STRING "JUCE git tag used when downloading")
 # ---------------------------------------------------------------------------------------
 add_library(skjald_dsp STATIC
     Source/DSP/Filters/FilterDesign.cpp
+    Source/DSP/Filters/LinearPhaseLowpass.cpp
     Source/DSP/Equalizer/EQBand.cpp
     Source/DSP/Equalizer/Equalizer.cpp
     Source/DSP/Oversampling/HalfbandStage.cpp

@@ -1,5 +1,8 @@
 #include "../TestFramework.h"
 #include "../TestSignals.h"
+#include "DSP/Filters/LinearPhaseLowpass.h"
+#include "DSP/Maximizer/TruePeakGuard.h"
+#include "DSP/Oversampling/TruePeakDetector.h"
 
 using namespace skjald;
 using namespace skjald::test;
@@ -72,13 +75,13 @@ TEST_CASE ("Limiter", "Sample-peak ceiling enforcement (all modes, all oversampl
 
 TEST_CASE ("Limiter", "True-peak ceiling enforcement against independent measurement")
 {
-    // Documented tolerance (docs/TECHNICAL.md):
-    //  - BS.1770 true-peak meter (8x halfband reconstruction, like DAC filters): <= ceiling + 0.01 dB
-    //  - idealised long-kernel sinc reconstruction (independent code):          <= ceiling + 0.15 dB
-    //    (the difference is caused only by energy in the 0.485-0.5 fs band)
+    // Documented tolerance (docs/TECHNICAL.md section 3.5), every algorithm and factor:
+    //  - SKJALD true-peak meter:                                          <= ceiling + 0.01 dB
+    //  - ITU-R BS.1770-4 Annex 2 reference meter (independent code):      <= ceiling + 0.01 dB
+    //  - idealised long-kernel sinc reconstruction (independent code):    <= ceiling + 0.02 dB
     const double fs = 44100.0;
     const auto mix = syntheticMix ((int) (fs * 3), fs, 1.0, 11);
-    double worstIdeal = -100.0, worstMeter = -100.0;
+    double worstIdeal = -100.0, worstMeter = -100.0, worstItu = -100.0;
     for (int mode = 0; mode < kNumLimiterModes; ++mode)
         for (int os = 0; os < 5; ++os)
             for (float thr : { -6.0f, -18.0f })
@@ -87,13 +90,90 @@ TEST_CASE ("Limiter", "True-peak ceiling enforcement against independent measure
                 MasteringEngine e;
                 auto out = runEngine (maxParams ((LimiterMode) mode, os, true, thr, ceiling), mix, fs, 512, &e);
                 const double ideal = toDb (independentTruePeak (out, 0, dbToGain (ceiling - 12.0f)));
+                const double itu = toDb (ituTruePeak (out));
                 const double meter = toDb (e.getOutputTruePeakMeter().getMaxPeak());
                 worstIdeal = std::max (worstIdeal, ideal - ceiling);
+                worstItu = std::max (worstItu, itu - ceiling);
                 worstMeter = std::max (worstMeter, meter - ceiling);
-                CHECK_MSG (ideal <= ceiling + 0.15, "mode %s os %dx thr %.0f: ideal true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, thr, ideal);
+                CHECK_MSG (ideal <= ceiling + 0.02, "mode %s os %dx thr %.0f: ideal true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, thr, ideal);
+                CHECK_MSG (itu <= ceiling + 0.01, "mode %s os %dx thr %.0f: ITU true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, thr, itu);
                 CHECK_MSG (meter <= ceiling + 0.01, "mode %s os %dx thr %.0f: metered true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, thr, meter);
             }
-    info ("worst excess over ceiling: BS.1770 meter %+.3f dB, ideal reconstruction %+.3f dB", worstMeter, worstIdeal);
+    info ("worst excess over ceiling: SKJALD meter %+.3f dB, ITU meter %+.3f dB, ideal reconstruction %+.3f dB", worstMeter, worstItu, worstIdeal);
+}
+
+TEST_CASE ("Limiter", "True peak holds on full-band hard-clipped noise (pathological signal)")
+{
+    // Maximum energy up to Nyquist: before the output band-limiter this read up to +0.18 dB
+    // over the ceiling with an ideal reconstruction.
+    const double fs = 44100.0;
+    const auto noise = clippedNoise (2, (int) (fs * 2), 1.0);
+    double worstIdeal = -100.0, worstItu = -100.0;
+    for (int mode = 0; mode < kNumLimiterModes; ++mode)
+        for (int os : { 0, 2, 4 })
+        {
+            const float ceiling = -1.0f;
+            auto out = runEngine (maxParams ((LimiterMode) mode, os, true, -10.0f, ceiling), noise, fs);
+            const double ideal = toDb (independentTruePeak (out, 0, dbToGain (ceiling - 12.0f)));
+            const double itu = toDb (ituTruePeak (out));
+            worstIdeal = std::max (worstIdeal, ideal - ceiling);
+            worstItu = std::max (worstItu, itu - ceiling);
+            CHECK_MSG (ideal <= ceiling + 0.02, "mode %s os %dx: ideal true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, ideal);
+            CHECK_MSG (itu <= ceiling + 0.01, "mode %s os %dx: ITU true peak %.3f dBTP", getModeName ((LimiterMode) mode), 1 << os, itu);
+        }
+    info ("worst excess over ceiling: ITU meter %+.3f dB, ideal reconstruction %+.3f dB", worstItu, worstIdeal);
+}
+
+TEST_CASE ("Limiter", "Output band-limiter: flat passband, deep stopband")
+{
+    LinearPhaseLowpass lp;
+    lp.design (TruePeakGuard::kBandPassEdge, TruePeakGuard::kBandStopEdge, TruePeakGuard::kBandAttenuationDb);
+    double passDev = 0.0, stopMax = 0.0;
+    for (int i = 0; i <= 2000; ++i)
+    {
+        const double f = TruePeakGuard::kBandPassEdge * i / 2000.0;
+        passDev = std::max (passDev, std::abs (toDb (lp.magnitudeAt (f))));
+        const double fsb = TruePeakGuard::kBandStopEdge + (0.5 - TruePeakGuard::kBandStopEdge) * i / 2000.0;
+        stopMax = std::max (stopMax, lp.magnitudeAt (fsb));
+    }
+    info ("%d taps, passband deviation %.5f dB, stopband %.1f dB", lp.getNumTaps(), passDev, toDb (stopMax));
+    CHECK (passDev < 0.001);
+    CHECK (toDb (stopMax) < -100.0);
+
+    // impulse response: linear phase (symmetric), latency (N - 1) / 2
+    std::vector<float> y ((size_t) lp.getNumTaps());
+    lp.reset();
+    for (size_t i = 0; i < y.size(); ++i)
+        y[i] = lp.process (i == 0 ? 1.0f : 0.0f);
+    size_t peakIdx = 0;
+    for (size_t i = 0; i < y.size(); ++i)
+        if (y[i] > y[peakIdx]) peakIdx = i;
+    CHECK ((int) peakIdx == lp.getLatency());
+    for (size_t i = 0; i < y.size(); ++i)
+        CHECK (std::abs (y[i] - y[y.size() - 1 - i]) < 1.0e-7f);
+}
+
+TEST_CASE ("Limiter", "Refined true-peak detector reads near-Nyquist crests")
+{
+    // A 20 kHz tone at 44.1 kHz: an 8x detector without refinement can miss the crest by up to
+    // 0.13 dB depending on phase; the refined detector must be within 0.01 dB at every phase
+    // (what remains is the passband ripple of the three 70 dB halfband stages).
+    const double fs = 44100.0;
+    double worst = 0.0;
+    for (int ph = 0; ph < 16; ++ph)
+    {
+        auto s = sine (1, 8192, fs, 20000.0, 0.5, kTwoPi * ph / 16.0);
+        TruePeakDetector d;
+        d.prepare (8, 70.0, TruePeakDetector::kDefaultEdge, true);
+        std::vector<float> pk (s[0].size());
+        d.process (s[0].data(), pk.data(), (int) pk.size());
+        float m = 0.0f;
+        for (size_t i = 2048; i < pk.size(); ++i)
+            m = std::max (m, pk[i]);
+        worst = std::max (worst, std::abs (toDb (m / 0.5)));
+    }
+    info ("worst error %.4f dB", worst);
+    CHECK (worst < 0.01);
 }
 
 TEST_CASE ("Limiter", "True-peak on band-limited material (< 0.45 fs) matches ideal reconstruction")

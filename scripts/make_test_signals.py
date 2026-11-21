@@ -34,6 +34,10 @@ def main():
 
     t = np.arange(int(fs * 5)) / fs
     isp = 0.7071 * np.sin(2 * np.pi * fs / 4 * t + np.pi / 4)
+    # 50 ms silent lead-in: a tone that starts at full level on sample 0 makes any processed
+    # file whose latency has been trimmed begin mid-way through the (linear-phase) onset, and
+    # the truncation itself then reads as a false inter-sample over
+    isp[: int(0.05 * fs)] = 0.0
     save(os.path.join(out, "isp_fs4_45deg.wav"), np.stack([isp, isp], 1), fs)
 
     t = np.arange(int(fs * 12)) / fs

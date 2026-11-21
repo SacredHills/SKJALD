@@ -115,6 +115,15 @@ inline double independentTruePeak (const Buffer& b, int from = 0, float evalAbov
         return t;
     }();
 
+    // Every local maximum of the 16x sequence is refined by a parabola through its neighbours
+    // (16 points per sample alone can miss a crest near Nyquist by ~0.03 dB).
+    auto refine = [] (double a, double bb, double c)
+    {
+        const double den = a - 2.0 * bb + c;
+        if (bb >= a && bb >= c && den < 0.0)
+            return bb - 0.125 * (a - c) * (a - c) / den;
+        return bb;
+    };
     double peak = 0.0;
     for (auto& ch : b)
     {
@@ -125,17 +134,65 @@ inline double independentTruePeak (const Buffer& b, int from = 0, float evalAbov
             if (std::max (std::abs (ch[(size_t) i]), std::abs (ch[(size_t) i + 1])) < evalAbove)
                 continue;
             const float* base = ch.data() + (i - half + 1);
-            for (int p = 1; p < ups; ++p)
+            double y[ups + 3]; // |y| at positions -1/16, 0, 1/16 .. 1, 1 + 1/16
+            auto eval = [&] (const float* bp, int p)
             {
                 const double* t = table.data() + p * taps;
                 double acc = 0.0;
                 for (int j = 0; j < taps; ++j)
-                    acc += base[j] * t[j];
-                peak = std::max (peak, std::abs (acc));
-            }
+                    acc += bp[j] * t[j];
+                return std::abs (acc);
+            };
+            y[0] = eval (base - 1, ups - 1);
+            y[1] = std::abs (ch[(size_t) i]);
+            for (int p = 1; p < ups; ++p)
+                y[p + 1] = eval (base, p);
+            y[ups + 1] = std::abs (ch[(size_t) i + 1]);
+            y[ups + 2] = eval (base + 1, 1);
+            for (int k = 1; k <= ups + 1; ++k)
+                peak = std::max (peak, refine (y[k - 1], y[k], y[k + 1]));
         }
     }
     return peak;
+}
+
+/** ITU-R BS.1770-4 Annex 2 reference true-peak meter (4x, the Recommendation's 48-tap
+    filter), written independently of the production detector: this is what delivery
+    platforms and most loudness meters measure. */
+inline double ituTruePeak (const Buffer& b, int from = 0)
+{
+    static const double P[4][12] = {
+        { 0.0017089843750, 0.0109863281250, -0.0196533203125, 0.0332031250000, -0.0594482421875, 0.1373291015625,
+          0.9721679687500, -0.1022949218750, 0.0476074218750, -0.0266113281250, 0.0148925781250, -0.0083007812500 },
+        { -0.0291748046875, 0.0292968750000, -0.0517578125000, 0.0891113281250, -0.1665039062500, 0.4650878906250,
+          0.7797851562500, -0.2003173828125, 0.1015625000000, -0.0582275390625, 0.0330810546875, -0.0189208984375 },
+        { -0.0189208984375, 0.0330810546875, -0.0582275390625, 0.1015625000000, -0.2003173828125, 0.7797851562500,
+          0.4650878906250, -0.1665039062500, 0.0891113281250, -0.0517578125000, 0.0292968750000, -0.0291748046875 },
+        { -0.0083007812500, 0.0148925781250, -0.0266113281250, 0.0476074218750, -0.1022949218750, 0.9721679687500,
+          0.1373291015625, -0.0594482421875, 0.0332031250000, -0.0196533203125, 0.0109863281250, 0.0017089843750 } };
+    double peak = 0.0;
+    for (auto& ch : b)
+        for (size_t n = (size_t) from + 11; n < ch.size(); ++n)
+            for (const auto& ph : P)
+            {
+                double acc = 0.0;
+                for (int j = 0; j < 12; ++j)
+                    acc += ph[j] * ch[n - (size_t) j];
+                peak = std::max (peak, std::abs (acc));
+            }
+    return peak;
+}
+
+/** Full-band white noise, hard clipped (a deliberately pathological true-peak signal:
+    maximum energy right up to Nyquist and dense inter-sample overs). */
+inline Buffer clippedNoise (int channels, int samples, double peak, uint64_t seed = 3)
+{
+    Rng rng { seed };
+    auto b = makeBuffer (channels, samples);
+    for (auto& ch : b)
+        for (auto& v : ch)
+            v = (float) (peak * std::clamp (2.0 * rng.uniform(), -1.0, 1.0));
+    return b;
 }
 
 inline double rms (const Buffer& b, int from = 0, int to = -1)

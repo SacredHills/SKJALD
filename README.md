@@ -59,7 +59,7 @@ scripts/        independent Python verification (true peak / LUFS) and test-sign
 
 ## Testing
 
-- `skjald_dsp_tests`: 42 tests / ~950 checks: EQ accuracy, Q, slopes, stability over the whole parameter space, ceiling enforcement for every mode and oversampling factor, true peak against an independent reconstruction, latency, algorithm differentiation, release / adaptive release, transient preservation, stereo link, delta, bypass, AGC, click-free parameter and oversampling changes, block-size invariance, EBU Tech 3341 loudness cases, CPU.
+- `skjald_dsp_tests`: 45 tests / ~1230 checks: EQ accuracy, Q, slopes, stability over the whole parameter space, ceiling enforcement for every mode and oversampling factor, true peak against an independent reconstruction and the ITU-R BS.1770-4 reference meter (including full-band clipped noise), latency, algorithm differentiation, release / adaptive release, transient preservation, stereo link, delta, bypass, AGC, click-free parameter and oversampling changes, block-size invariance, EBU Tech 3341 loudness cases, CPU.
 - `skjald_plugin_tests`: loads the built VST3 like a DAW: latency at every sample rate, impulse alignment, mono, random block sizes, 64-bit, state round-trip of all parameters, random automation, CPU, editor.
 - [pluginval](https://github.com/Tracktion/pluginval) at strictness level 10 (CI, all platforms).
 - `scripts/verify_true_peak.py`: independent (numpy/scipy) true-peak and LUFS measurement of files processed by `skjald_offline` (CI, Linux).

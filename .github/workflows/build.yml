@@ -96,12 +96,18 @@ jobs:
         run: |
           python3 scripts/make_test_signals.py signals 44100
           mkdir -p processed
-          for f in drums_bass_mix pink_noise_bursts isp_fs4_45deg; do
+          for f in drums_bass_mix pink_noise_bursts isp_fs4_45deg clipped_noise; do
             for mode in transparent modern aggressive punch smooth; do
               ./build/Tools/OfflineProcessor/skjald_offline signals/$f.wav processed/${f}_${mode}.wav \
                 --mode $mode --threshold -10 --ceiling -1 > /dev/null
               python3 scripts/verify_true_peak.py processed/${f}_${mode}.wav --ceiling -1
             done
+          done
+          # every oversampling factor on the hardest signal
+          for os in 1 2 8 16; do
+            ./build/Tools/OfflineProcessor/skjald_offline signals/clipped_noise.wav processed/clipped_os$os.wav \
+              --mode aggressive --threshold -10 --ceiling -1 --os $os > /dev/null
+            python3 scripts/verify_true_peak.py processed/clipped_os$os.wav --ceiling -1
           done
           ./build/Tools/OfflineProcessor/skjald_offline --benchmark 10
 

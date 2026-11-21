@@ -37,8 +37,30 @@
 - **pluginval** passes at strictness 10.
 - **Independent Python verification** (`scripts/verify_true_peak.py`) found residual overs of about 0.1 dB from energy within 1.5 % of Nyquist.
   - The guard detector's transition was narrowed to 0.495-0.505 fs, and a second, deliberately over-reading near-Nyquist detector was added.
-  - The remaining worst case (hard-clipped white noise) is documented in TECHNICAL.md §3.5.
+  - The remaining worst case (hard-clipped white noise) was documented in TECHNICAL.md §3.5; resolved in the second session (below).
 - Folding symmetric halfband taps halved their multiplies, which brought CPU back to about 8 % of one core at the default 4x.
+
+## 2026-11-20 (second session): true-peak guarantee, CI fix
+
+The Linux CI job failed in the independent verification step: Aggressive mode on the drum mix read +0.086 dB over the ceiling with the script's 4x scipy filter. Investigation:
+
+- **Two measurement bugs in the checker.** The "ideal" FFT reconstruction was circular, so the end of each file wrapped onto its start; this produced a false +0.48 dB on the fs/4 tone. The scipy 4x filter has its cutoff exactly at Nyquist and over-reads full-band material by up to 0.07 dB. The script now uses the ITU-R BS.1770-4 Annex 2 reference filter for compliance and a zero-padded, parabolically refined 16x FFT reconstruction; the scipy reading is informational.
+- **Real overs remained** with honest meters: up to +0.07 dB (ideal) on pink-noise bursts, +0.18 dB on clipped noise, and up to +0.10 dB on the ITU meter, whose ripple reads above the ideal reconstruction.
+- **Isolated the guard** with a harness (guard alone, fed limited audio +1 dB): it left +0.074 dB. At the over location its detector read −0.011 dB. Cause: the decimators' transition band folds clipping harmonics into the last few per cent below Nyquist, where no finite detector is accurate.
+- **Fix, three parts.**
+  1. A linear-phase band-limit (flat to 0.4535·fs, ≥ 100 dB from 0.4875·fs) in front of the guard.
+  2. A ±8-sample neighbourhood in the guard's gain guarantee, so its own gain ramp cannot create overs.
+  3. The ITU Annex 2 detector added to the guard's readings.
+  After these, the guard alone still left +0.07 dB on clipped noise: **8x sampling granularity**, as a 20 kHz crest can fall 0.13 dB between oversampled points. Added parabolic refinement of local maxima in the guard's detector (and in both independent checkers, whose 16-point grids under-read by up to 0.03 dB themselves).
+- **Result.** Every signal, algorithm, factor and sample rate tested is now at or below the ceiling on all three independent measurements (TECHNICAL.md §3.5). Latency grew by 109 samples at 48 kHz (now 1032). CPU is unchanged within noise (≈ 8 % of one core at 4x).
+- **Remaining trace over (+0.02 dB on the fs/4 tone at 48/96 kHz) was a test artefact.** The tone started at full level on sample 0, so the latency-trimmed output began mid-onset. With a 50 ms lead-in it reads −0.045 dB. The signal generator now adds the lead-in.
+- New tests:
+  - true peak on clipped noise (ITU and ideal);
+  - band-limit passband and stopband, symmetry and latency;
+  - refined detector accuracy at 20 kHz over 16 phases;
+  - the existing true-peak test tightened from +0.15 dB to +0.02 dB (ideal), with an ITU check added.
+
+  CI also verifies clipped noise at every oversampling factor. 45 DSP tests (1232 checks), plug-in host tests and pluginval (strictness 10) pass.
 
 ### Open items
 - Manual testing in commercial DAWs (Windows/macOS) beyond pluginval and the host tests.

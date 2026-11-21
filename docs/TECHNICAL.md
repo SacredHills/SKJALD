@@ -56,6 +56,7 @@ drive (input gain − threshold, smoothed)
       → stereo link → sliding minimum (attack window) → program-dependent release
       → 1-3 cascaded moving averages (attack shape) → × input delayed by a fixed amount
   → downsample → latency pad
+  → output band-limit (linear phase, flat to 0.4535·fs, ≥ 100 dB from 0.4875·fs)
   → true-peak guard (output verification, ~1 ms lookahead)
   → ceiling clamp (numerical safety net)
   → auto gain compensation / delta / bypass mix
@@ -100,25 +101,28 @@ Switching factors starts the new path in parallel, lets it fill, then crossfades
 ### 3.5 True peak
 
 - **Core detection.** At 1x to 4x, an interpolating detector reconstructs at least 8x of the base rate. At 8x and 16x the oversampled samples themselves are used.
-- **Output guard.** After decimation the limiter's harmonics are filtered away, which can create new inter-sample overs. The guard measures the decimated output with two detectors and uses the larger reading:
-  1. an 8x halfband cascade whose transition band is only 0.495 to 0.505·fs, accurate to within 0.01 dB for content up to 0.49·fs;
-  2. a short interpolator with its cutoff 12 % above Nyquist, which deliberately *over*-reads content closest to Nyquist (the safe side).
+- **Output band-limit.** Decimation filters remove most of the harmonics that limiting and clipping create, but their transition band (0.4535 to 0.5465·fs) folds part of them into the last few per cent below Nyquist. No finite reconstruction filter can measure the true peak of content that close to Nyquist accurately. So before the guard measures anything, a 201-tap linear-phase low-pass removes it: flat within ±0.0001 dB to 0.4535·fs (20 kHz at 44.1 kHz, the oversampler's own passband) and at least 100 dB down from 0.4875·fs.
+- **Output guard.** After the band-limit, the guard measures the output with four readings and uses the largest:
+  1. an 8x halfband cascade (transition band 0.495 to 0.505·fs) whose local maxima are refined by parabolic interpolation. Even at 8x a 20 kHz tone is sampled only every 0.35 rad, so the raw maximum can miss the crest by up to 0.13 dB; refined, the reading is within 0.01 dB (test `Refined true-peak detector reads near-Nyquist crests`);
+  2. a short interpolator with its cutoff 12 % above Nyquist, which deliberately *over*-reads content near Nyquist (the safe side);
+  3. the **ITU-R BS.1770-4 Annex 2 reference meter** (the Recommendation's 4x, 48-tap filter). Delivery platforms measure with this filter, and its ripple makes it read up to about 0.1 dB *above* the ideal reconstruction on some material, so including it makes the output compliant with the standard meter too;
+  4. the sample peak.
 
-  It then applies a fully linked 1 ms lookahead correction with the same min/average guarantee. Ceiling margins are 0.03 dB for the core and 0.01 dB for the guard.
+  It then applies a fully linked 1 ms lookahead correction with the min/average guarantee of the core. The minimum is taken over ±8 samples around every sample, so the gain is at or below the required reduction on *every* sample that contributes to an inter-sample peak, not only on the peak sample; the guard's own gain ramp therefore cannot create overs. Ceiling margins are 0.03 dB for the core and 0.01 dB for the guard.
 - **Metering.** The meter uses the same halfband reconstruction at ≥ 352.8 kHz (8x at 44.1 or 48 kHz, 4x at 88.2 or 96 kHz, 2x at 176.4 or 192 kHz). That exceeds the BS.1770-4 Annex 2 example filter.
 
-**Measured tolerance.** Ceiling −1 dBTP, all 5 algorithms × 5 oversampling factors × threshold −6 and −18 dB, synthetic drum/bass/noise mix:
+**Measured tolerance.** Ceiling −1 dBTP. Three independent measurements, none sharing code with the plug-in: the ITU Annex 2 reference meter, a long-kernel (2 × 128-tap) sinc reconstruction at 16 points per sample with parabolic refinement (C++ tests), and a 16x FFT reconstruction of the zero-padded file with parabolic refinement (`scripts/verify_true_peak.py`, run by CI).
 
-| Measurement | Worst excess over the ceiling |
-|---|---|
-| SKJALD BS.1770 true-peak meter | −0.005 dB |
-| Independent long-kernel ideal reconstruction (C++ test, separate code) | +0.025 dB |
-| Same material low-passed at 18 kHz, ideal reconstruction | ≤ +0.02 dB |
-| `verify_true_peak.py`, 4x polyphase (scipy), drum mix and pink-noise bursts | ≤ +0.02 dB |
+| Material and settings | SKJALD meter | ITU Annex 2 meter | Ideal reconstruction |
+|---|---|---|---|
+| Synthetic drum/bass mix, all 5 algorithms × 5 oversampling factors × threshold −6 and −18 dB (C++ test) | −0.010 dB | −0.010 dB | −0.008 dB |
+| Full-band hard-clipped white noise driven 10 dB, all 5 algorithms × 1x/4x/16x (C++ test) | – | −0.022 dB | −0.005 dB |
+| `verify_true_peak.py` at 44.1 kHz: drum mix, pink-noise bursts, fs/4 inter-sample-peak tone and clipped noise × all 5 algorithms, plus clipped noise at every factor (CI) | – | ≤ −0.010 dB | ≤ −0.004 dB |
+| Same script at 48 and 96 kHz (manual run) | – | ≤ −0.010 dB | ≤ −0.005 dB |
 
-Sample-peak mode keeps the sample peak at or below the ceiling exactly, tested at every factor and algorithm.
+**Documented tolerance:** the output true peak stays **at or below the ceiling** by every one of these measurements; the tests and CI allow +0.01 dB (ITU) and +0.02 dB (ideal) as numerical headroom. Sample-peak mode keeps the sample peak at or below the ceiling exactly, tested at every factor and algorithm.
 
-**Limitation (documented, not hidden).** Content in the last ~1 % below Nyquist cannot be separated from its mirror image by any finite reconstruction filter. For *full-band hard-clipped white noise* driven 10 dB into the limiter (a pathological signal), the output reads up to +0.12 dB over the ceiling with scipy's 4x filter and +0.18 dB with an ideal FFT reconstruction, while BS.1770-style meters with narrower filters read at the ceiling. For delivery to platforms that measure with very wide filters, a −1 dBTP ceiling (the common recommendation) leaves ample headroom.
+**Measurement pitfalls found while verifying.** (1) An FFT reconstruction of a file that is not zero-padded is circular: the end of the file wraps onto its start, and the step reads as a false over (it reported +0.48 dB on a tone that is actually below the ceiling). (2) A test file that starts at full level on its first sample, processed and then trimmed by the plug-in latency, begins part-way through the linear-phase onset; the truncation itself reads as an over of about +0.02 dB. The fs/4 test tone therefore has a 50 ms silent lead-in. (3) A scipy Kaiser FIR with its cutoff exactly at Nyquist lets images of near-Nyquist content through and over-reads full-band material by up to 0.07 dB relative to the ideal reconstruction, so the script reports it for information only.
 
 ### 3.6 Latency
 
@@ -126,14 +130,14 @@ Latency is constant for all parameter values and is reported at `prepareToPlay` 
 
 | Sample rate | Latency |
 |---|---|
-| 44.1 kHz | 880 samples (19.95 ms) |
-| 48 kHz | 923 samples (19.23 ms) |
-| 88.2 kHz | 1365 samples (15.48 ms) |
-| 96 kHz | 1451 samples (15.11 ms) |
-| 176.4 kHz | 2335 samples (13.24 ms) |
-| 192 kHz | 2507 samples (13.06 ms) |
+| 44.1 kHz | 989 samples (22.43 ms) |
+| 48 kHz | 1032 samples (21.50 ms) |
+| 88.2 kHz | 1474 samples (16.71 ms) |
+| 96 kHz | 1560 samples (16.25 ms) |
+| 176.4 kHz | 2444 samples (13.85 ms) |
+| 192 kHz | 2616 samples (13.62 ms) |
 
-It is made up of the 10 ms maximum lookahead, the true-peak detector, the oversampler (padded to the 16x path) and the output guard. The host tests verify an impulse emerges exactly at the reported latency.
+It is made up of the 10 ms maximum lookahead, the true-peak detector, the oversampler (padded to the 16x path), the output band-limit (100 samples) and the output guard. The host tests verify an impulse emerges exactly at the reported latency.
 
 ## 4. Loudness and metering
 
@@ -155,9 +159,9 @@ Measured on the 2-core cloud VM used for development (a desktop CPU is typically
 
 | Oversampling | % of one core |
 |---|---|
-| 1x | ~8 % |
-| 4x (default) | ~7–8 % |
-| 16x | ~14 % |
+| 1x | ~7 % |
+| 4x (default) | ~8 % |
+| 16x | ~11 % |
 
 Run `skjald_offline --benchmark` for figures on your machine.
 
@@ -167,5 +171,5 @@ Run `skjald_offline --benchmark` for figures on your machine.
 - **Channels.** Mono and stereo only; surround layouts are rejected.
 - **EQ phase.** The EQ is minimum phase; there is no linear-phase mode.
 - **Oversampling switch CPU.** While switching oversampling factors (about the latency plus 10 ms), both paths run, so CPU briefly doubles.
-- **Near-Nyquist true peak.** See section 3.5.
+- **Output bandwidth.** The output band-limit removes content above 0.4535·fs (above 20 kHz at 44.1 kHz, 21.8 kHz at 48 kHz) whenever the Maximizer is active, also at 1x. This is inaudible and is what makes the true-peak guarantee hold for full-band material; with the Maximizer bypassed the full bandwidth passes.
 - **Platform testing.** Linux builds and passes every test and pluginval locally. Windows and macOS builds are produced and tested by CI. DAW compatibility beyond pluginval and the host tests (for example specific Pro Tools, Logic or Ableton versions) has not been tested manually.
