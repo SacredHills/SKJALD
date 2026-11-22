@@ -259,6 +259,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       inputGain (p.getState(), params::inputGain, "Input Gain", true),
       threshold (p.getState(), params::threshold, "Threshold"),
       ceiling (p.getState(), params::ceiling, "Ceiling"),
+      clipAmount (p.getState(), params::clipAmount, "Clip"),
       character (p.getState(), params::character, "Character"),
       release (p.getState(), params::release, "Release"),
       stereoLink (p.getState(), params::stereoLink, "Stereo Link", false, colours::analysis),
@@ -278,13 +279,14 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
                                     "Dense and loud, controlled drive", "Keeps kick and snare impact",
                                     "Gentle, for acoustic material" });
     for (juce::Component* c : std::initializer_list<juce::Component*> {
-             &grDisplay, &loudness, &modeSelector, &inputGain, &threshold, &ceiling, &character, &release, &stereoLink, &transient,
+             &grDisplay, &loudness, &modeSelector, &inputGain, &threshold, &ceiling, &clipAmount, &character, &release, &stereoLink, &transient,
              &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser,
              &thresholdLink, &learnButton, &targetSlider })
         addAndMakeVisible (c);
     for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain })
         addChildComponent (c);
 
+    clipAmount.getSlider().setTooltip ("Clip amount: how much of each peak is cut off by the soft clipper before the limiter turns the gain down. 0 = off (the default), 100 % = the algorithm's own depth, up to 300 %");
     thresholdLink.setTooltip ("Link: moving the threshold moves the ceiling by the same amount");
     learnButton.setTooltip ("Learn Threshold: press, play the loudest part, press again. Sets the threshold for the target loudness");
     targetSlider.setSliderStyle (juce::Slider::LinearBar);
@@ -323,7 +325,8 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
         const float t = learnedThresholdDb (e.getInputLoudness().getIntegrated(), (float) targetSlider.getValue(),
                                             (float) inputGain.getSlider().getValue(),
                                             juce::Decibels::gainToDecibels (e.getInputPeakMeter().getMaxPeak(), -100.0f),
-                                            (float) ceiling.getSlider().getValue());
+                                            (float) ceiling.getSlider().getValue(),
+                                            (float) clipAmount.getSlider().getValue() * 0.01f);
         threshold.getSlider().setValue (t, juce::sendNotificationSync);
     };
     delta.setTooltip ("Delta: listen to what the maximizer removes (latency aligned)");
@@ -365,10 +368,11 @@ void MaximizerTab::resized()
         learnRow.removeFromLeft (6);
         targetSlider.setBounds (learnRow.removeFromLeft (120).reduced (0, 1));
         auto right = k.removeFromRight (230);
-        const int kw = k.getWidth() / 7;
+        const int kw = k.getWidth() / 8;
         inputGain.setBounds (k.removeFromLeft (kw));
         threshold.setBounds (k.removeFromLeft (kw));
         ceiling.setBounds (k.removeFromLeft (kw));
+        clipAmount.setBounds (k.removeFromLeft (kw));
         character.setBounds (k.removeFromLeft (kw));
         auto rel = k.removeFromLeft (kw);
         autoRelease.setBounds (rel.removeFromBottom (24).withSizeKeepingCentre (64, 24));

@@ -195,6 +195,38 @@ TEST_CASE ("Maximizer", "Soft clipping is always on, keeps the ceiling and ignor
     CHECK_LE (toDb (samplePeak (b)), -1.0 + 1.0e-4);
 }
 
+TEST_CASE ("Maximizer", "Clip Amount scales the soft clipper: more clip, less gain reduction, ceiling kept")
+{
+    const double fs = 44100.0;
+    const auto mix = syntheticMix ((int) (fs * 3), fs, 1.0, 5);
+    auto p = base (LimiterMode::Transparent);
+    p.max.thresholdDb = -6.0f;
+    p.max.truePeak = false;
+    auto grOf = [&] (float amount)
+    {
+        p.max.clipAmount = amount;
+        MasteringEngine e;
+        auto out = run (p, mix, fs, &e);
+        CHECK_LE (toDb (samplePeak (out)), p.max.ceilingDb + 1.0e-4);
+        return toDb (rms (out));
+    };
+    const double r0 = grOf (0.0f), r1 = grOf (1.0f), r3 = grOf (3.0f);
+    info ("output RMS at clip 0 / 100 / 300 %%: %.2f / %.2f / %.2f dB", r0, r1, r3);
+    CHECK (r1 > r0 + 0.05);   // the default clipper keeps more loudness than none...
+    CHECK (r3 > r1 + 0.05);   // ...and a deeper one keeps more again
+    p.max.clipAmount = 1.0f;
+    auto a1 = run (p, mix, fs);
+    auto pd = base (LimiterMode::Transparent);
+    pd.max.thresholdDb = -6.0f;
+    pd.max.truePeak = false;
+    auto a2 = run (pd, mix, fs);
+    double diff = 0.0;
+    for (size_t c = 0; c < 2; ++c)
+        for (size_t i = 0; i < a1[c].size(); ++i)
+            diff = std::max (diff, (double) std::abs (a1[c][i] - a2[c][i]));
+    CHECK_MSG (diff == 0.0, "100 %% must equal the default behaviour");
+}
+
 TEST_CASE ("Maximizer", "Delta monitoring is latency aligned (wet + delta == driven input)")
 {
     const double fs = 48000.0;

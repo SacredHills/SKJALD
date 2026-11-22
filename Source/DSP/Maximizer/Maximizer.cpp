@@ -171,7 +171,7 @@ CoreSettings Maximizer::buildCoreSettings() const noexcept
     s.link = clamp01 (params.stereoLink); // peak stage always follows the knob (Split only changes the leveler)
     // Bounded soft clipping is always on: every mode shaves its few overshoots with its own depth
     // (Transparent / Modern / Smooth / Punch 0.7-1 dB, Aggressive 0.25 dB). The old Soft Clip switch is gone.
-    const float depth = modeCfg.clipper.depthDb;
+    const float depth = modeCfg.clipper.depthDb * std::clamp (params.clipAmount, 0.0f, 3.0f);
     s.clipDepthDb = depth;
     s.clipKnee = modeCfg.clipper.knee;
     s.transientDepthDb = modeCfg.transientDepthDb;

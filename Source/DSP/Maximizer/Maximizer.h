@@ -22,6 +22,7 @@ struct MaximizerParams
     float ceilingDb = -1.0f;       // -12 .. 0   (dBTP when true peak is on)
     float releaseMs = 100.0f;      // 5 .. 1000
     bool autoRelease = false;
+    float clipAmount = 1.0f;       // soft-clip depth as a multiple of the mode's own depth (0 = off, 1 = as designed)
     float character = 5.0f;        // 0 (fast) .. 10 (slow): overall attack and release speed, 5 = neutral
     float lookaheadMs = 5.0f;      // 0 .. 10
     float stereoLink = 1.0f;       // 0 .. 1

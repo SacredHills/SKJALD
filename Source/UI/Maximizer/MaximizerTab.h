@@ -64,7 +64,7 @@ private:
     GRHistoryDisplay grDisplay;
     LoudnessPanel loudness;
     ChoiceSelector modeSelector;
-    Knob inputGain, threshold, ceiling, character, release, stereoLink, transient, lookahead;
+    Knob inputGain, threshold, ceiling, clipAmount, character, release, stereoLink, transient, lookahead;
     ParamToggle thresholdLink;
     juce::TextButton learnButton { "LEARN" };
     juce::Label targetLabel;

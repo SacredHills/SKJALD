@@ -15,7 +15,7 @@ namespace skjald
     and loss(over) is an empirical table (Modern mode with the always-on soft clipper, programme material). The equation
     inputLufs + drive - loss = target is solved by bisection. Result is clamped to the parameter range. */
 inline float learnedThresholdDb (float inputLufs, float targetLufs, float inputGainDb,
-                                 float inputPeakDb, float ceilingDb) noexcept
+                                 float inputPeakDb, float ceilingDb, float clipAmount = 1.0f) noexcept
 {
     if (inputLufs <= -69.0f)
         return 0.0f; // nothing measured: leave unity drive
@@ -23,18 +23,26 @@ inline float learnedThresholdDb (float inputLufs, float targetLufs, float inputG
     auto outputLufs = [&] (float drive)
     {
         const float over = std::max (0.0f, inputPeakDb + drive - ceilingDb);
-        // (over, loss) measured on programme material, Modern mode with the always-on soft clipper; linear in between
-        static constexpr float table[][2] = { { 0.0f, 0.0f }, { 1.5f, 0.31f }, { 3.5f, 1.18f }, { 6.7f, 3.04f }, { 9.5f, 4.50f },
-                                              { 11.5f, 5.69f }, { 14.0f, 7.79f }, { 17.0f, 10.91f }, { 20.5f, 14.32f } };
-        constexpr int n = (int) (sizeof (table) / sizeof (table[0]));
-        float loss = table[n - 1][1] + 0.97f * (over - table[n - 1][0]);
-        for (int i = 1; i < n; ++i)
-            if (over <= table[i][0])
-            {
-                const float t = (over - table[i - 1][0]) / (table[i][0] - table[i - 1][0]);
-                loss = table[i - 1][1] + t * (table[i][1] - table[i - 1][1]);
-                break;
-            }
+        // (over, loss) measured on programme material, Modern mode, linear in between. Two tables: soft clipper
+        // off (Clip Amount 0) and at the mode's own depth (100 %); the knob blends between them.
+        static constexpr float off[][2] = { { 0.0f, 0.0f }, { 3.7f, 1.9f }, { 6.7f, 3.97f }, { 11.5f, 7.1f }, { 20.5f, 14.5f } };
+        static constexpr float on[][2] = { { 0.0f, 0.0f }, { 1.5f, 0.31f }, { 3.5f, 1.18f }, { 6.7f, 3.04f }, { 9.5f, 4.50f },
+                                           { 11.5f, 5.69f }, { 14.0f, 7.79f }, { 17.0f, 10.91f }, { 20.5f, 14.32f } };
+        auto lossOf = [over] (const auto& table, int n, float tail)
+        {
+            float loss = table[n - 1][1] + tail * (over - table[n - 1][0]);
+            for (int i = 1; i < n; ++i)
+                if (over <= table[i][0])
+                {
+                    const float t = (over - table[i - 1][0]) / (table[i][0] - table[i - 1][0]);
+                    loss = table[i - 1][1] + t * (table[i][1] - table[i - 1][1]);
+                    break;
+                }
+            return loss;
+        };
+        const float w = std::clamp (clipAmount, 0.0f, 1.0f);
+        const float loss = (1.0f - w) * lossOf (off, (int) (sizeof (off) / sizeof (off[0])), 0.85f)
+                           + w * lossOf (on, (int) (sizeof (on) / sizeof (on[0])), 0.97f);
         return inputLufs + drive - loss;
     };
 
