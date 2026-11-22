@@ -272,7 +272,6 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       adaptive (p.getState(), params::adaptiveRelease, "ADAPTIVE RELEASE"),
       autoGain (p.getState(), params::autoGain, "AUTO GAIN", colours::analysis),
       oversampling (p.getState(), params::oversampling, params::oversamplingNames()),
-      linkMode (p.getState(), params::linkMode, params::linkModeNames()),
       presetBrowser (p, PresetCategory::Maximizer)
 {
     modeSelector.setDescriptions ({ "Clean, natural, minimal artefacts", "Balanced commercial loudness",
@@ -283,7 +282,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
              &autoRelease, &truePeak, &bypass, &delta, &oversampling, &advancedButton, &presetBrowser,
              &thresholdLink, &learnButton, &targetSlider })
         addAndMakeVisible (c);
-    for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain, &linkMode })
+    for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain })
         addChildComponent (c);
 
     thresholdLink.setTooltip ("Link: moving the threshold moves the ceiling by the same amount");
@@ -330,12 +329,11 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
     delta.setTooltip ("Delta: listen to what the maximizer removes (latency aligned)");
     autoGain.setTooltip ("Automatic gain compensation: level-matched monitoring for A/B (never exceeds the ceiling)");
     oversampling.setTooltip ("Oversampling factor of the limiter (higher = less aliasing, more CPU)");
-    linkMode.setTooltip ("Standard: one link amount. Split: sustained stage fully linked, peak stage follows Stereo Link");
     advancedButton.setClickingTogglesState (true);
     advancedButton.onClick = [this]
     {
         advancedOpen = advancedButton.getToggleState();
-        for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain, &linkMode })
+        for (juce::Component* c : std::initializer_list<juce::Component*> { &lookahead, &adaptive, &autoGain })
             c->setVisible (advancedOpen);
         resized();
         repaint();
@@ -413,8 +411,6 @@ void MaximizerTab::resized()
         a.removeFromLeft (12);
         auto col2 = a.removeFromLeft (170);
         autoGain.setBounds (col2.removeFromTop (30));
-        col2.removeFromTop (14);
-        linkMode.setBounds (col2.removeFromTop (30));
     }
     else
     {

@@ -28,7 +28,7 @@
 - **Stereo Link:** 0 % independent, 100 % fully linked.
 - **Transient:** transient emphasis. More attack is kept by clipping only the tips of drum hits.
 - **TRUE PEAK, Oversampling 1x-16x:** inter-sample peak control and processing quality.
-- **ADVANCED:** lookahead, adaptive release, auto gain (level-matched A/B), stereo link mode (Standard / Split).
+- **ADVANCED:** lookahead, adaptive release, auto gain (level-matched A/B).
 - **DELTA:** listen to what the limiter removes. **MAX BYPASS** bypasses the maximizer only.
 - **Gain-reduction history:** the fill shows peak gain reduction and the line shows the average.
 

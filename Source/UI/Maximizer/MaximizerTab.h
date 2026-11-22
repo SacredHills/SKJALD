@@ -73,7 +73,7 @@ private:
     bool learning = false;
     float lastThreshold = 0.0f;
     ParamToggle autoRelease, truePeak, bypass, delta, adaptive, autoGain;
-    ChoiceSelector oversampling, linkMode;
+    ChoiceSelector oversampling;
     juce::TextButton advancedButton { "ADVANCED" };
     PresetBrowser presetBrowser;
     bool advancedOpen = false;
