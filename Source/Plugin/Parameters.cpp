@@ -121,7 +121,7 @@ Layout createLayout()
     mx->addChild (std::make_unique<BoolParam> (id (autoRelease), "Auto Release", true));
     mx->addChild (std::make_unique<FloatParam> (id (character), "Character", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
                                                 Attributes().withStringFromValueFunction ([] (float v, int) { return juce::String (v, 1); })));
-    mx->addChild (std::make_unique<FloatParam> (id (clipAmount), "Clip Amount", juce::NormalisableRange<float> (0.0f, 300.0f, 1.0f), 0.0f,
+    mx->addChild (std::make_unique<FloatParam> (id (clipAmount), "Clip Amount", juce::NormalisableRange<float> (0.0f, 300.0f, 0.01f), 0.0f,
                                                 Attributes().withLabel ("%").withStringFromValueFunction ([] (float v, int) { return juce::String ((int) std::lround (v)) + " %"; })));
     mx->addChild (std::make_unique<BoolParam> (id (thresholdLink), "Threshold-Ceiling Link", false));
     mx->addChild (std::make_unique<FloatParam> (id (targetLufs), "Target Loudness", juce::NormalisableRange<float> (-30.0f, -5.0f, 0.01f), -14.0f,
