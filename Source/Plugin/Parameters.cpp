@@ -119,7 +119,7 @@ Layout createLayout()
     mx->addChild (std::make_unique<FloatParam> (id (release), "Release", logRange (5.0f, 1000.0f), 100.0f,
                                                 Attributes().withLabel ("ms").withStringFromValueFunction (formatMs)));
     mx->addChild (std::make_unique<BoolParam> (id (autoRelease), "Auto Release", true));
-    mx->addChild (std::make_unique<FloatParam> (id (character), "Character", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
+    mx->addChild (std::make_unique<FloatParam> (id (character), "Speed", juce::NormalisableRange<float> (0.0f, 10.0f, 0.01f), 5.0f,
                                                 Attributes().withStringFromValueFunction ([] (float v, int) { return juce::String (v, 1); })));
     mx->addChild (std::make_unique<FloatParam> (id (clipAmount), "Clip Amount", juce::NormalisableRange<float> (0.0f, 300.0f, 0.01f), 0.0f,
                                                 Attributes().withLabel ("%").withStringFromValueFunction ([] (float v, int) { return juce::String ((int) std::lround (v)) + " %"; })));

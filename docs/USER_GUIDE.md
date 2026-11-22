@@ -25,6 +25,7 @@
 - **Input Gain / Threshold:** drive into the limiter. Lowering the threshold raises the level and the amount of limiting.
 - **Ceiling:** maximum output level, in dBTP when TRUE PEAK is on.
 - **Release / AUTO:** manual release time, or automatic release based on the program material.
+- **Speed:** overall limiter speed, 0 (fast) to 10 (slow), 5 neutral. Scales attack and release together (Auto release included). Fast = less ducking, slow = smoother but longer dips after hits.
 - **Clip:** how much of each peak the soft clipper cuts off before the limiter turns the gain down. 0 % = off (default), 100 % = the algorithm's own depth (0.25 dB Aggressive, 0.7 to 1.2 dB others), up to 300 %. More clip means less ducking and more distortion.
 - **Stereo Link:** 0 % independent, 100 % fully linked.
 - **Transient:** transient emphasis. More attack is kept by clipping only the tips of drum hits.

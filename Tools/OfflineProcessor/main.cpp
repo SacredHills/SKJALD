@@ -38,7 +38,7 @@ void usage()
         "  --input-gain <dB>     -24..24  (default 0)\n"
         "  --release <ms>        5..1000  (default 100)\n"
         "  --auto-release\n"
-        "  --character <0..10>   Fast..Slow overall speed (default 5)\n"
+        "  --character <0..10>   Speed, fast..slow (default 5)\n"
         "  --clip <0..300>       Soft-clip amount in %% of the mode's own depth (default 100)\n"
         "  --lookahead <ms>      0..10    (default 5)\n"
         "  --link <percent>      0..100   (default 100)\n"

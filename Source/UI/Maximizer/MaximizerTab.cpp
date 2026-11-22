@@ -260,7 +260,7 @@ MaximizerTab::MaximizerTab (SkjaldAudioProcessor& p)
       threshold (p.getState(), params::threshold, "Threshold"),
       ceiling (p.getState(), params::ceiling, "Ceiling"),
       clipAmount (p.getState(), params::clipAmount, "Clip"),
-      character (p.getState(), params::character, "Character"),
+      character (p.getState(), params::character, "Speed"),
       release (p.getState(), params::release, "Release"),
       stereoLink (p.getState(), params::stereoLink, "Stereo Link", false, colours::analysis),
       transient (p.getState(), params::transient, "Transient", false, colours::analysis),
